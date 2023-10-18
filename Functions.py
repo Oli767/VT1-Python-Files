@@ -72,7 +72,7 @@ def Scenario_plot(Scenarios, Fth=50):
     plt.grid(True)
     plt.xlabel("Years")
     plt.ylabel("Passenger Numbers")
-    plt.title("Demand Szenarios for Zurich Airport")
+    plt.title("Demand Szenarios")
     plt.figure()
 
 
