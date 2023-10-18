@@ -72,7 +72,7 @@ def Scenario_plot(Scenarios, Fth=50):
     plt.grid(True)
     plt.xlabel("Years")
     plt.ylabel("Passenger Numbers")
-    plt.title("Demand Szenarios for Zurich Airport")
+    plt.title("Demand Szenarios")
     plt.figure()
 
 
@@ -87,7 +87,18 @@ def Scenario_plot(Scenarios, Fth=50):
 # Scenario_plot(Scenario_creation(mu, sigma, Dt0, dt, Fth, Forecasts), Fth)
 
 
-def NPV_Calculation(D, K, t, r_D, r_K, co_K, co_D, ci_K, discount, EoS):
+def NPV_Calculation(
+    D,
+    K,
+    t=1,
+    r_D=0.03,
+    r_K=0.03,
+    co_K=0.02,
+    co_D=0.004,
+    ci_K=10,
+    discount=0.05,
+    EoS=0.85,
+):
     """This function is calculates the NPV as a function of a Demand and Capacity Vector
 
     Args:
@@ -137,3 +148,45 @@ def NPV_Calculation(D, K, t, r_D, r_K, co_K, co_D, ci_K, discount, EoS):
         # Net Present Value as sum of all Present Values
         NPV[i] = np.sum(Present_Value)
     return NPV
+
+
+def Decision_Rule(D, K0, deltaK_Flex):
+    """This function is creating new Capacity Vectors while considering a decision rule
+
+    Args:
+        D               Demand Vector                               np.array
+        K0              Initial Capacity                            integer
+        deltaK_flex     Capacity increase vector                    list with 3 values
+
+    Returns:
+        K_Flex          Capacity vector considering a decision rule    np.array
+
+    To call this Function use following syntax:
+        Decision_Rule(D, K0, deltaK_Flex)
+    """
+    # If loop when the Demand Matrix is only a Vector
+    if D.ndim == 1:
+        D = D.reshape(1, -1)
+    else:
+        D = D
+    # Create an array of the same shape as D initialized with K0
+    K_Flex = np.full(D.shape, K0, dtype=D.dtype)
+    # For loop to iterate over all Scenarios
+    for i in range(D.shape[0]):
+        # For loop to iterate over all values of a Scenario
+        for j in range(D.shape[1]):
+            # if condition to check for overcapacity
+            if (K_Flex[i, j - 1] - D[i, j]) >= 0:
+                new_capacity = K_Flex[i, j - 1]
+            # elif condition to check the severity of the capacity deficit
+            elif (K_Flex[i, j - 1] - D[i, j]) < -deltaK_Flex[0]:
+                new_capacity = K_Flex[i, j - 1] + deltaK_Flex[1]
+            # elif condition to check the severity of capacity deficit
+            elif (K_Flex[i, j - 1] - D[i, j]) < -deltaK_Flex[1]:
+                new_capacity = K_Flex[i, j - 1] + deltaK_Flex[2]
+            # else condition to check the severity of the Capacity deficit
+            else:
+                new_capacity = K_Flex[i, j - 1] + deltaK_Flex[0]
+            # changing the Capacity values for the given overcapacity or deficit
+            K_Flex[i, j] = new_capacity
+    return K_Flex
