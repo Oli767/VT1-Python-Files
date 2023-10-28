@@ -48,12 +48,13 @@ def Scenario_creation(mu, sigma, Dt0, dt=1, Fth=50, Forecasts=20):
     return np.array(Szenarios)
 
 
-def Scenario_plot(Scenarios, Fth=50):
+def Scenario_plot(Scenarios, Fth=50, Title="Demand Szenarios"):
     """This function is plotting the Scenarios Created in the Scenario function
 
     Args:
         Scenarios   Szenario Data                  np.array
         Fth         Forecast time horizon          int
+        Title       Title for the Plot             str
     Returns:
         Plot of all Demand Vectors in a Single Graph
 
@@ -72,7 +73,7 @@ def Scenario_plot(Scenarios, Fth=50):
     plt.grid(True)
     plt.xlabel("Years")
     plt.ylabel("Passenger Numbers")
-    plt.title("Demand Szenarios")
+    plt.title(Title)
     plt.figure()
 
 
@@ -90,10 +91,11 @@ def Scenario_plot(Scenarios, Fth=50):
 def NPV_Calculation(
     D,
     K,
-    t=1,
+    Fth,
+    dt,
     r_D=0.03,
     r_K=0.03,
-    co_K=0.02,
+    co_K=0.01,
     co_D=0.004,
     ci_K=10,
     discount=0.05,
@@ -104,6 +106,8 @@ def NPV_Calculation(
     Args:
         D           Demand Vector                                       np.array
         K           Estimated Capacity Vector                           np.array
+        Fth         Forecast time horizon                               int
+        dt          Duration of Delta t in Years                        int
         r_D         Revenues per Unit of Demand per Period              float
         r_K         Revenues per Unit of Capacity per Period            float
         co_K        Operational costs per unit of capacity per period   flaot
@@ -116,8 +120,11 @@ def NPV_Calculation(
         NPV for given Inputs                                            np.array
 
     To call this Function use following syntax:
-        NPV_Calculation(D, K, t, r_D, r_K, co_K, co_D, ci_K, discount, EoS)
+        NPV_Calculation(D, K, Fth, dt, r_D, r_K, co_K, co_D, ci_K, discount, EoS)
     """
+    # Creation of a time vector
+    t = np.arange(0, Fth, dt)
+
     # Creation of a Capacity Change Vector
     deltaK0 = np.diff(K)
     # Setting the initial Value of the Change Vector to Zero
