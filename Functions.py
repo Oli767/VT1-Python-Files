@@ -93,8 +93,10 @@ def NPV_Calculation(
     K,
     Fth,
     dt,
+    th=1000000,
     r_D=0.03,
     r_K=0.03,
+    r_K_rent=0.03,
     co_K=0.01,
     co_D=0.004,
     ci_K=10,
@@ -106,8 +108,6 @@ def NPV_Calculation(
     Args:
         D           Demand Vector                                       np.array
         K           Estimated Capacity Vector                           np.array
-        Fth         Forecast time horizon                               int
-        dt          Duration of Delta t in Years                        int
         r_D         Revenues per Unit of Demand per Period              float
         r_K         Revenues per Unit of Capacity per Period            float
         co_K        Operational costs per unit of capacity per period   flaot
@@ -120,10 +120,10 @@ def NPV_Calculation(
         NPV for given Inputs                                            np.array
 
     To call this Function use following syntax:
-        NPV_Calculation(D, K, Fth, dt, r_D, r_K, co_K, co_D, ci_K, discount, EoS)
+        NPV_Calculation(D, K, t, r_D, r_K, co_K, co_D, ci_K, discount, EoS)
     """
     # Creation of a time vector
-    t = np.arange(0, Fth, dt)
+    t = np.arange(1, Fth + 1, dt)
 
     # Creation of a Capacity Change Vector
     deltaK0 = np.diff(K)
@@ -135,13 +135,25 @@ def NPV_Calculation(
         D = D.reshape(1, -1)
     else:
         D = D
-    NPV = np.zeros(D.shape[0])  # Initialize an array to store NPV for each row
+    # Calculate the Difference Matrix
+    diff = K - D
+    # Initialize an array to store Revenue for each value
+    Revenue = np.zeros(D.shape)
+    # Initialize an array to store NPV for each row
+    NPV = np.zeros(D.shape[0])
     # For loop to iterate over all Scenarios
     for i in range(D.shape[0]):
-        #  Revenue as function of Demand and Capacity
-        Revenue = r_D * D[i] + r_K * K
+        for j in range(D.shape[1]):
+            # If condition to account for over- or undercapacity
+            if diff[i, j] > 0:
+                Revenue[i, j] = (
+                    D[i, j] * r_K_rent + K[j] * r_K + th * D[i, j] * r_D
+                ) - ((K[j] - D[i, j]) * r_K_rent + (K[j] - D[i, j]) * th * r_K)
+            else:
+                Revenue[i, j] = K[j] * r_K_rent + K[j] * r_K + th * D[i, j] * r_D
+
         # Operationals Costs as a function of Demand and Capacity
-        Cost_Ops = co_K * K + co_D * D[i]
+        Cost_Ops = co_K * K + co_D * th * D
         # Investment Costs as a function of Capacity and Economys of Scale Factor
         Cost_Investment = ci_K * (np.power(deltaK, EoS))
         # Total Cost as Sum of Operational and Investment Costs
@@ -153,7 +165,7 @@ def NPV_Calculation(
         # Present Value as a function of Discount rate and Profit
         Present_Value = Discount * Profit
         # Net Present Value as sum of all Present Values
-        NPV[i] = np.sum(Present_Value)
+        NPV[i] = np.sum(Present_Value[i])
     return NPV
 
 
