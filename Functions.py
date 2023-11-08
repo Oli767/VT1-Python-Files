@@ -183,9 +183,9 @@ def Decision_Rule(D, K0, deltaK_Flex):
     """This function is creating new Capacity Vectors while considering a decision rule
 
     Args:
-        D               Demand Vector                               np.array
-        K0              Initial Capacity                            integer
-        deltaK_flex     Capacity increase vector                    list with 3 values
+        D               Demand Vector                       np.array
+        K0              Initial Capacity                    integer
+        deltaK_flex     Capacity increase vector            list with 3 values
 
     Returns:
         K_Flex          Capacity vector considering a decision rule    np.array
@@ -225,9 +225,9 @@ def Decision_Rule_Excel(D, K0=25, deltaK_Flex=5):
     """This function is creating new Capacity Vectors while considering a decision rule
 
     Args:
-        D               Demand Vector                               np.array
-        K0              Initial Capacity                            integer
-        deltaK_flex     Capacity increase vector                    int
+        D               Demand Vector                       np.array
+        K0              Initial Capacity                    integer
+        deltaK_flex     Capacity increase vector            int
 
     Returns:
         K_Flex          Capacity vector considering a decision rule    np.array
