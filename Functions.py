@@ -53,13 +53,16 @@ def Scenario_creation(mu, sigma, Dt0, dt=1, Fth=50, Forecasts=20):
     return Szenarios
 
 
-def Scenario_plot(Scenarios, Fth=50, Title="Demand Szenarios"):
+def Scenario_plot(
+    Scenarios, Fth=50, Title="Demand Szenarios", label="Passenger Numbers"
+):
     """This function is plotting the Scenarios Created in the Scenario function
 
     Args:
         Scenarios   Szenario Data                  np.array
         Fth         Forecast time horizon          int
         Title       Title for the Plot             str
+        ylabel      Y-Axis Description             str
     Returns:
         Plot of all Demand Vectors in a Single Graph
 
@@ -77,7 +80,7 @@ def Scenario_plot(Scenarios, Fth=50, Title="Demand Szenarios"):
         plt.plot(plotvector, scenario, label="Scenario")
     plt.grid(True)
     plt.xlabel("Years")
-    plt.ylabel("Passenger Numbers")
+    plt.ylabel(label)
     plt.title(Title)
     plt.figure()
 
