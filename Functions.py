@@ -54,15 +54,16 @@ def Scenario_creation(mu, sigma, Dt0, dt=1, Fth=50, Forecasts=20):
 
 
 def Scenario_plot(
-    Scenarios, Fth=50, Title="Demand Szenarios", label="Passenger Numbers"
+    Scenarios, Fth=50, NoStep=True, Title="Demand Szenarios", label="Passenger Numbers"
 ):
     """This function is plotting the Scenarios Created in the Scenario function
 
     Args:
-        Scenarios   Szenario Data                  np.array
-        Fth         Forecast time horizon          int
-        Title       Title for the Plot             str
-        ylabel      Y-Axis Description             str
+        Scenarios   Szenario Data                       np.array
+        Fth         Forecast time horizon               int
+        NoStep      Question if Step Plot or not        bool
+        Title       Title for the Plot                  str
+        ylabel      Y-Axis Description                  str
     Returns:
         Plot of all Demand Vectors in a Single Graph
 
@@ -77,7 +78,10 @@ def Scenario_plot(
 
     plotvector = list(range(1, (Fth + 1)))
     for scenario in Scenarios:
-        plt.plot(plotvector, scenario, label="Scenario")
+        if NoStep == True:
+            plt.plot(plotvector, scenario, label="Scenario")
+        else:
+            plt.step(plotvector, scenario, where="post", label="Scenario")
     plt.grid(True)
     plt.xlabel("Years")
     plt.ylabel(label)
@@ -344,3 +348,71 @@ def Flex_NPV_Calculation(
         # Net Present Value as sum of all Present Values
         NPV[i] = np.sum(Present_Value[i])
     return NPV
+
+
+def CDF_Plot(Vector1, Vector2):
+    """This function is calculates the NPV as a function of a Demand and Capacity Vector
+
+    Args:
+        Vector1         Input Vector 1          np.array
+        Vector1         Input Vector 1          np.array
+
+    Returns:
+        Plot of all input Vectors in a CDF Graphic
+
+    To call this Function use following syntax:
+        CDF_Plot(Vector1, Vector2)
+    """
+    # Create a subplot
+    fig, ax = plt.subplots()
+
+    # Your step plot code with specific values
+    ax.plot(
+        np.sort(Vector1),
+        np.arange(1, len(Vector1) + 1) / float(len(Vector1)),
+        linestyle="-",  # Example linestyle (dashed)
+        label="Traditional CDF Curve",  # Example label
+        linewidth=2,  # Example linewidth
+        color="green",  # Example color
+        alpha=0.7,  # Example alpha (transparency)
+    )
+
+    ax.plot(
+        np.sort(Vector2),
+        np.arange(1, len(Vector2) + 1) / float(len(Vector2)),
+        linestyle="-",  # Example linestyle (dashed)
+        label="Flexible CDF Curve",  # Example label
+        linewidth=2,  # Example linewidth
+        color="blue",  # Example color
+        alpha=0.7,  # Example alpha (transparency)
+    )
+    mean1 = np.mean(Vector1)
+    Vector3 = np.full_like(Vector1, mean1)
+    ax.plot(
+        np.sort(Vector3),
+        np.arange(1, len(Vector3) + 1) / float(len(Vector3)),
+        linestyle="--",  # Example linestyle (dashed)
+        label="Traditional ENPV",  # Example label
+        linewidth=2,  # Example linewidth
+        color="red",  # Example color
+        alpha=0.7,  # Example alpha (transparency)
+    )
+    mean2 = np.mean(Vector2)
+    Vector4 = np.full_like(Vector2, mean2)
+    ax.plot(
+        np.sort(Vector4),
+        np.arange(1, len(Vector4) + 1) / float(len(Vector4)),
+        linestyle="-.",  # Example linestyle (dashed)
+        label="Flexible ENPV",  # Example label
+        linewidth=2,  # Example linewidth
+        color="red",  # Example color
+        alpha=0.7,  # Example alpha (transparency)
+    )
+
+    # Other customization and show the plot
+    ax.grid(True)
+    ax.set_title("Cumulative Distribution Function (CDF)")
+    ax.set_xlabel("NPVs")
+    ax.set_ylabel("Cumulative Probability")
+    ax.legend()
+    plt.show()
