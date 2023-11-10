@@ -89,17 +89,6 @@ def Scenario_plot(
     plt.figure()
 
 
-# Required Parameters
-# mu = 0.042754330256447565
-# sigma = 0.05891802084811409
-# Dt0 = 22561132
-# t = 1
-# Fth = 50
-# Forecasts = 20
-# To Call the Function use this Format:
-# Scenario_plot(Scenario_creation(mu, sigma, Dt0, dt, Fth, Forecasts), Fth)
-
-
 def NPV_Calculation(
     D,
     K,
@@ -186,19 +175,20 @@ def NPV_Calculation(
     return NPV
 
 
-def Decision_Rule(D, K0, deltaK_Flex):
+def Decision_Rule(D, K0, theta, deltaK):
     """This function is creating new Capacity Vectors while considering a decision rule
 
     Args:
         D               Demand Vector                       np.array
         K0              Initial Capacity                    integer
-        deltaK_flex     Capacity increase vector            list with 3 values
+        theta           Capacity increase vector            list with 3 integers
+        deltaK          Capacity Difference Condition       list with 3 integers
 
     Returns:
         K_Flex          Capacity vector considering a decision rule    np.array
 
     To call this Function use following syntax:
-        Decision_Rule(D, K0, deltaK_Flex)
+        Decision_Rule(D, K0, theta)
     """
     # If loop when the Demand Matrix is only a Vector
     if D.ndim == 1:
@@ -212,17 +202,20 @@ def Decision_Rule(D, K0, deltaK_Flex):
         # For loop to iterate over all values of a Scenario
         for j in range(D.shape[1]):
             # if condition to check for overcapacity
-            if (K_Flex[i, j - 1] - D[i, j]) >= 0:
+            if (K_Flex[i, j - 1] - D[i, j]) > 0:
                 new_capacity = K_Flex[i, j - 1]
             # elif condition to check the severity of the capacity deficit
-            elif (K_Flex[i, j - 1] - D[i, j]) < -deltaK_Flex[0]:
-                new_capacity = K_Flex[i, j - 1] + deltaK_Flex[1]
+            elif (K_Flex[i, j - 1] - D[i, j]) == 0:
+                new_capacity = K_Flex[i, j - 1] + theta[0]
+            # elif condition to check the severity of the capacity deficit
+            elif (K_Flex[i, j - 1] - D[i, j]) < -deltaK[0]:
+                new_capacity = K_Flex[i, j - 1] + theta[1]
             # elif condition to check the severity of capacity deficit
-            elif (K_Flex[i, j - 1] - D[i, j]) < -deltaK_Flex[1]:
-                new_capacity = K_Flex[i, j - 1] + deltaK_Flex[2]
+            elif (K_Flex[i, j - 1] - D[i, j]) < -deltaK[1]:
+                new_capacity = K_Flex[i, j - 1] + theta[2]
             # else condition to check the severity of the Capacity deficit
             else:
-                new_capacity = K_Flex[i, j - 1] + deltaK_Flex[0]
+                new_capacity = K_Flex[i, j - 1] + theta[3]
             # changing the Capacity values for the given overcapacity or deficit
             K_Flex[i, j] = new_capacity
     return K_Flex
@@ -254,7 +247,7 @@ def Decision_Rule_Excel(D, K0=25, deltaK_Flex=5):
         # For loop to iterate over all values of a Scenario
         for j in range(D.shape[1]):
             # if condition to check for overcapacity
-            if (K_Flex[i, j - 1] - D[i, j]) >= 0:
+            if (K_Flex[i, j - 1] - D[i, j]) > 0:
                 new_capacity = K_Flex[i, j - 1]
             # else condition to check  for undercapacity
             else:
