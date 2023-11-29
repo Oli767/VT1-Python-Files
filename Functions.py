@@ -84,7 +84,7 @@ def Scenario_plot(
     else:
         Scenarios = Scenarios
 
-    indices = np.random.choice(Scenarios.shape[0], size=(20))
+    indices = np.random.choice(Scenarios.shape[0], size=(40))
     Small_Scenario = Scenarios[indices]
 
     plotvector = list(range(1, (Fth)))
@@ -364,9 +364,10 @@ def CDF_Plot(Vector1, Vector2):
     ax.grid(True)
     ax.set_title("Cumulative Distribution Function (CDF)")
     ax.set_xlabel("NPVs")
-    ax.set_ylabel("Cumulative Probability in %")
+    ax.set_ylabel("Cumulative Probability [%]")
     ax.legend()
     plt.show()
+    return [percentile_10a, percentile_90a, percentile_10b, percentile_90b]
 
 
 def Capacity_Vector_Check(Capacity_Vector, Demand_Array):
