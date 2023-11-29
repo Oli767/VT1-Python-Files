@@ -4,10 +4,11 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import random
+import sys
 
 
-def Scenario_creation(mu, sigma, Dt0, dt=1, Fth=50, Forecasts=20):
-    """This function is calculating various scenarios for Demand
+def Scenario_creation(mu, sigma, Dt0, dt=1, Fth=20, Forecasts=100):
+    """This function is calculating a denfined numer of Scenarios
 
     Args:
         mu          Mean Percentage Growth mu                       float
@@ -22,16 +23,20 @@ def Scenario_creation(mu, sigma, Dt0, dt=1, Fth=50, Forecasts=20):
     To Call the Function use following syntax:
         Scenario_creation(mu, sigma, Dt0, dt, Fth, Forecasts)
     """
+    # Adding one to the time horizon and Forecast as Python starts counting from zero
+    Fth += 1
+    Forecasts += 1
     # Creation of Number of Forecast Vector
-    S = list(range(1, Forecasts + 1))
+    S = list(range(1, Forecasts))
     # Creation of a time length of the Scenario Vectors
     S2 = list(range(1, Fth))
 
     # Spread of the Scenario can be adjusted here at randomrange
     randomrange = np.arange(-1, 1, 0.1)
+
     # Initialise a Scenarios Vector
     Szenarios = []
-    # for loop to iterate over all Forecasts
+    # For loop to iterate over all Forecasts
     for i in S:
         # Add Demand at t0 to the Vector
         D = [Dt0]
@@ -45,55 +50,62 @@ def Scenario_creation(mu, sigma, Dt0, dt=1, Fth=50, Forecasts=20):
             D.append(Szenario)
         # Append all Demand Vectors to the Scenarios Maxtrix
         Szenarios.append(D)
-    return np.array(Szenarios)
+    # Change Shape to an Numpy Array
+    Szenarios = np.array(Szenarios)
+    # Get rid of the Initial Demand Value
+    Szenarios = Szenarios[:, 1:]
+    return Szenarios
 
 
-def Scenario_plot(Scenarios, Fth=50):
+def Scenario_plot(
+    Scenarios, Fth=20, NoStep=True, Title="Demand Szenarios", label="Passenger Numbers"
+):
     """This function is plotting the Scenarios Created in the Scenario function
 
     Args:
-        Scenarios   Szenario Data                  np.array
-        Fth         Forecast time horizon          int
+        Scenarios   Szenario Data                       np.array
+        Fth         Forecast time horizon               int
+        NoStep      Question if Step Plot or not        bool
+        Title       Title for the Plot                  str
+        ylabel      Y-Axis Description                  str
     Returns:
         Plot of all Demand Vectors in a Single Graph
 
     To Call the Function use following syntax:
         Scenario_plot(Scenarios, Fth)
     """
+    # Adding one to the time horizon as Python starts counting from zero
+    Fth += 1
+
     # If loop when Scenarios is only a Vector
     if Scenarios.ndim == 1:
         Scenarios = Scenarios.reshape(1, -1)
     else:
         Scenarios = Scenarios
 
-    plotvector = list(range(1, (Fth + 1)))
+    plotvector = list(range(1, (Fth)))
     for scenario in Scenarios:
-        plt.plot(plotvector, scenario, label="Scenario")
+        if NoStep == True:
+            plt.plot(plotvector, scenario, label="Scenario")
+        else:
+            plt.step(plotvector, scenario, where="post", label="Scenario")
     plt.grid(True)
     plt.xlabel("Years")
-    plt.ylabel("Passenger Numbers")
-    plt.title("Demand Szenarios")
+    plt.ylabel(label)
+    plt.title(Title)
     plt.figure()
-
-
-# Required Parameters
-# mu = 0.042754330256447565
-# sigma = 0.05891802084811409
-# Dt0 = 22561132
-# t = 1
-# Fth = 50
-# Forecasts = 20
-# To Call the Function use this Format:
-# Scenario_plot(Scenario_creation(mu, sigma, Dt0, dt, Fth, Forecasts), Fth)
 
 
 def NPV_Calculation(
     D,
     K,
-    t=1,
+    Fth,
+    dt,
+    th=1000000,
     r_D=0.03,
     r_K=0.03,
-    co_K=0.02,
+    r_K_rent=0.03,
+    co_K=0.01,
     co_D=0.004,
     ci_K=10,
     discount=0.05,
@@ -104,8 +116,12 @@ def NPV_Calculation(
     Args:
         D           Demand Vector                                       np.array
         K           Estimated Capacity Vector                           np.array
+        Fth         Forecast time horizon                               int
+        dt          Steptime [Years]                                    int
+        th          Throughput Capacity per Unit of Capacity            int
         r_D         Revenues per Unit of Demand per Period              float
         r_K         Revenues per Unit of Capacity per Period            float
+        r_K_rent    Rental Revenues per Unit of Capacity per Period     float
         co_K        Operational costs per unit of capacity per period   flaot
         co_D        Operational cost per unit of demand per period      float
         ci_K        Installation cost per unit of capacity              float
@@ -116,8 +132,13 @@ def NPV_Calculation(
         NPV for given Inputs                                            np.array
 
     To call this Function use following syntax:
-        NPV_Calculation(D, K, t, r_D, r_K, co_K, co_D, ci_K, discount, EoS)
+        NPV_Calculation(D, K, Fth, dt, r_D, r_K, co_K, co_D, ci_K, discount, EoS)
     """
+    # Adding one to the time horizon as Python starts counting from zero
+    Fth += 1
+    # Creation of a time vector
+    t = np.arange(1, Fth, dt)
+
     # Creation of a Capacity Change Vector
     deltaK0 = np.diff(K)
     # Setting the initial Value of the Change Vector to Zero
@@ -128,13 +149,25 @@ def NPV_Calculation(
         D = D.reshape(1, -1)
     else:
         D = D
-    NPV = np.zeros(D.shape[0])  # Initialize an array to store NPV for each row
+    # Calculate the Difference Matrix
+    diff = K - D
+    # Initialize an array to store Revenue for each value
+    Revenue = np.zeros(D.shape)
+    # Initialize an array to store NPV for each row
+    NPV = np.zeros(D.shape[0])
     # For loop to iterate over all Scenarios
     for i in range(D.shape[0]):
-        #  Revenue as function of Demand and Capacity
-        Revenue = r_D * D[i] + r_K * K
+        for j in range(D.shape[1]):
+            # If condition to account for over- or undercapacity
+            if diff[i, j] > 0:
+                Revenue[i, j] = (
+                    D[i, j] * r_K_rent + K[j] * r_K + th * D[i, j] * r_D
+                ) - ((K[j] - D[i, j]) * r_K_rent + (K[j] - D[i, j]) * th * r_K)
+            else:
+                Revenue[i, j] = K[j] * r_K_rent + K[j] * r_K + th * D[i, j] * r_D
+
         # Operationals Costs as a function of Demand and Capacity
-        Cost_Ops = co_K * K + co_D * D[i]
+        Cost_Ops = co_K * K + co_D * th * D
         # Investment Costs as a function of Capacity and Economys of Scale Factor
         Cost_Investment = ci_K * (np.power(deltaK, EoS))
         # Total Cost as Sum of Operational and Investment Costs
@@ -146,23 +179,24 @@ def NPV_Calculation(
         # Present Value as a function of Discount rate and Profit
         Present_Value = Discount * Profit
         # Net Present Value as sum of all Present Values
-        NPV[i] = np.sum(Present_Value)
+        NPV[i] = np.sum(Present_Value[i])
     return NPV
 
 
-def Decision_Rule(D, K0, deltaK_Flex):
+def Decision_Rule(D, K0, theta, deltaK):
     """This function is creating new Capacity Vectors while considering a decision rule
 
     Args:
-        D               Demand Vector                               np.array
-        K0              Initial Capacity                            integer
-        deltaK_flex     Capacity increase vector                    list with 3 values
+        D               Demand Vector                       np.array
+        K0              Initial Capacity                    integer
+        theta           Capacity increase vector            list with 3 integers
+        deltaK          Capacity Difference Condition       list with 3 integers
 
     Returns:
         K_Flex          Capacity vector considering a decision rule    np.array
 
     To call this Function use following syntax:
-        Decision_Rule(D, K0, deltaK_Flex)
+        Decision_Rule(D, K0, theta)
     """
     # If loop when the Demand Matrix is only a Vector
     if D.ndim == 1:
@@ -176,17 +210,236 @@ def Decision_Rule(D, K0, deltaK_Flex):
         # For loop to iterate over all values of a Scenario
         for j in range(D.shape[1]):
             # if condition to check for overcapacity
-            if (K_Flex[i, j - 1] - D[i, j]) >= 0:
+            if (K_Flex[i, j - 1] - D[i, j]) > 0:
                 new_capacity = K_Flex[i, j - 1]
             # elif condition to check the severity of the capacity deficit
-            elif (K_Flex[i, j - 1] - D[i, j]) < -deltaK_Flex[0]:
-                new_capacity = K_Flex[i, j - 1] + deltaK_Flex[1]
+            elif (K_Flex[i, j - 1] - D[i, j]) == 0:
+                new_capacity = K_Flex[i, j - 1] + theta[0]
+            # elif condition to check the severity of the capacity deficit
+            elif (K_Flex[i, j - 1] - D[i, j]) < -deltaK[0]:
+                new_capacity = K_Flex[i, j - 1] + theta[1]
             # elif condition to check the severity of capacity deficit
-            elif (K_Flex[i, j - 1] - D[i, j]) < -deltaK_Flex[1]:
-                new_capacity = K_Flex[i, j - 1] + deltaK_Flex[2]
+            elif (K_Flex[i, j - 1] - D[i, j]) < -deltaK[1]:
+                new_capacity = K_Flex[i, j - 1] + theta[2]
             # else condition to check the severity of the Capacity deficit
             else:
-                new_capacity = K_Flex[i, j - 1] + deltaK_Flex[0]
+                new_capacity = K_Flex[i, j - 1] + theta[3]
             # changing the Capacity values for the given overcapacity or deficit
             K_Flex[i, j] = new_capacity
     return K_Flex
+
+
+def Decision_Rule_Excel(D, K0=25, deltaK_Flex=5):
+    """This function is creating new Capacity Vectors while considering a decision rule
+
+    Args:
+        D               Demand Vector                       np.array
+        K0              Initial Capacity                    integer
+        deltaK_flex     Capacity increase vector            int
+
+    Returns:
+        K_Flex          Capacity vector considering a decision rule    np.array
+
+    To call this Function use following syntax:
+        Decision_Rule(D, K0, deltaK_Flex)
+    """
+    # If loop when the Demand Matrix is only a Vector
+    if D.ndim == 1:
+        D = D.reshape(1, -1)
+    else:
+        D = D
+    # Creation of an array with the same shape as D initialized with K0
+    K_Flex = np.full(D.shape, K0, dtype=D.dtype)
+    # For loop to iterate over all Scenarios
+    for i in range(D.shape[0]):
+        # For loop to iterate over all values of a Scenario
+        for j in range(D.shape[1]):
+            # if condition to check for overcapacity
+            if (K_Flex[i, j - 1] - D[i, j]) > 0:
+                new_capacity = K_Flex[i, j - 1]
+            # else condition to check  for undercapacity
+            else:
+                new_capacity = K_Flex[i, j - 1] + deltaK_Flex
+            # changing the Capacity values for the given overcapacity or deficit
+            K_Flex[i, j] = new_capacity
+    return K_Flex
+
+
+def Flex_NPV_Calculation(
+    D,
+    K,
+    Fth,
+    dt,
+    th=1000000,
+    r_D=0.03,
+    r_K=0.03,
+    r_K_rent=0.03,
+    co_K=0.01,
+    co_D=0.004,
+    ci_K=10,
+    discount=0.05,
+    EoS=0.85,
+):
+    """This function is calculates the NPV as a function of a Demand and Capacity Vector
+
+    Args:
+        D           Demand Vector                                       np.array
+        K           Estimated Capacity Vector                           np.array
+        Fth         Forecast time horizon                               int
+        dt          Steptime [Years]                                    int
+        th          Throughput Capacity per Unit of Capacity            int
+        r_D         Revenues per Unit of Demand per Period              float
+        r_K         Revenues per Unit of Capacity per Period            float
+        r_K_rent    Rental Revenues per Unit of Capacity per Period     float
+        co_K        Operational costs per unit of capacity per period   flaot
+        co_D        Operational cost per unit of demand per period      float
+        ci_K        Installation cost per unit of capacity              float
+        discount    Discount factor                                     float
+        EoS         Economy of Scale factor                             float
+
+    Returns:
+        NPV for given Inputs                                            np.array
+
+    To call this Function use following syntax:
+        Flex_NPV_Calculation(D, K, Fth, dt, r_D, r_K, co_K, co_D, ci_K, discount, EoS)
+    """
+    Fth += 1
+    # Creation of a time vector
+    t = np.arange(1, Fth, dt)
+
+    # Creation of a Capacity Change Vector
+    deltaK0 = np.diff(K, axis=1)
+    # Setting the initial Value of the Change Vector to Zero
+    deltaK = np.insert(deltaK0, 0, 0, axis=1)
+
+    # If loop when the Demand Matrix is only a Vector
+    if D.ndim == 1:
+        D = D.reshape(1, -1)
+    else:
+        D = D
+    # Calculate the Difference Matrix
+    diff = K - D
+    # Initialize an array to store Revenue for each value
+    Revenue = np.zeros(D.shape)
+    # Initialize an array to store NPV for each row
+    NPV = np.zeros(D.shape[0])
+    # For loop to iterate over all Scenarios
+    for i in range(D.shape[0]):
+        for j in range(D.shape[1]):
+            # If condition to account for over- or undercapacity
+            if diff[i, j] > 0:
+                Revenue[i, j] = (
+                    D[i, j] * r_K_rent + K[i, j] * r_K + th * D[i, j] * r_D
+                ) - ((K[i, j] - D[i, j]) * r_K_rent + (K[i, j] - D[i, j]) * th * r_K)
+            else:
+                Revenue[i, j] = K[i, j] * r_K_rent + K[i, j] * r_K + th * D[i, j] * r_D
+
+        # Operationals Costs as a function of Demand and Capacity
+        Cost_Ops = co_K * K + co_D * th * D
+        # Investment Costs as a function of Capacity and Economys of Scale Factor
+        Cost_Investment = ci_K * (np.power(deltaK, EoS))
+        # Total Cost as Sum of Operational and Investment Costs
+        Cost = Cost_Ops + Cost_Investment
+        # Profit as Difference of Revenue and Total Cost
+        Profit = Revenue - Cost
+        # Discount rate as a function of the Discount Factor and time t
+        Discount = 1 / (1 + discount) ** t
+        # Present Value as a function of Discount rate and Profit
+        Present_Value = Discount * Profit
+        # Net Present Value as sum of all Present Values
+        NPV[i] = np.sum(Present_Value[i])
+    return NPV
+
+
+def CDF_Plot(Vector1, Vector2):
+    """This function is Plotting the Cumulative Density Function of the NPVs
+    Args:
+        Vector1         Traditional Input Vector 1       np.array
+        Vector1         Flexible Input Vector 1          np.array
+
+    Returns:
+        Plot of all input Vectors in a CDF Graphic
+
+    To call this Function use following syntax:
+        CDF_Plot(Vector1, Vector2)
+    """
+    # Creating a subplot
+    fig, ax = plt.subplots()
+
+    # Step plot code with specific values
+    ax.plot(
+        np.sort(Vector1),
+        np.arange(1, len(Vector1) + 1) / float(len(Vector1)),
+        linestyle="-",
+        label="Traditional CDF Curve",
+        linewidth=2,
+        color="green",
+        alpha=0.7,
+    )
+
+    ax.plot(
+        np.sort(Vector2),
+        np.arange(1, len(Vector2) + 1) / float(len(Vector2)),
+        linestyle="-",
+        label="Flexible CDF Curve",
+        linewidth=2,
+        color="blue",
+        alpha=0.7,
+    )
+    mean1 = np.mean(Vector1)
+    Vector3 = np.full_like(Vector1, mean1)
+    ax.plot(
+        np.sort(Vector3),
+        np.arange(1, len(Vector3) + 1) / float(len(Vector3)),
+        linestyle="--",
+        label="Traditional ENPV",
+        linewidth=2,
+        color="red",
+        alpha=0.7,
+    )
+    mean2 = np.mean(Vector2)
+    Vector4 = np.full_like(Vector2, mean2)
+    ax.plot(
+        np.sort(Vector4),
+        np.arange(1, len(Vector4) + 1) / float(len(Vector4)),
+        linestyle="-.",
+        label="Flexible ENPV",
+        linewidth=2,
+        color="grey",
+        alpha=0.7,
+    )
+    ax.grid(True)
+    ax.set_title("Cumulative Distribution Function (CDF)")
+    ax.set_xlabel("NPVs")
+    ax.set_ylabel("Cumulative Probability")
+    ax.legend()
+    plt.show()
+
+
+def Capacity_Vector_Check(Capacity_Vector, Demand_Array):
+    """This function is Cecking if the Capacity Vector and Demand Vector Shape Match
+
+    Args:
+        Capacity_Vector         np.array
+        Demand_Array            np.array
+    Returns:
+        Printed Messages or Stops Programm from Running
+
+    To Call the Function use following syntax:
+        Capacity_Vector_Check(Capacity_Vector, Demand_Array)
+    """
+    # If loop when the Demand Matrix is only a Vector
+    if Demand_Array.ndim == 1:
+        Demand_Array = Demand_Array.reshape(1, -1)
+    else:
+        Demand_Array = Demand_Array
+
+    # Condition to check the Shape
+    some_condition = len(Capacity_Vector) == Demand_Array.shape[1]
+
+    # If loop to Check the condition
+    if not some_condition:
+        print("Error: Capacity Vector Doesn't Match the Demand Array Shape")
+        sys.exit()
+    # Continue with the rest of your code if the condition is met
+    print("Capacity Vector Matches the Demand Array Shape")
