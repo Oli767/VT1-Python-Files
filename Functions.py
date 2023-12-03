@@ -150,6 +150,7 @@ def NPV_Calculation_Fix(
     else:
         K = K
 
+    # Adding one to the time horizon as Python starts counting from zero
     Fth += 1
     # Creation of a time vector
     t = np.arange(1, Fth, dt)
@@ -166,16 +167,19 @@ def NPV_Calculation_Fix(
     # Initialize an array to store NPV for each row
     NPV = np.zeros(D.shape[0])
 
+    # Create an Index Matrix with the Condition for Overcapacity
     greater_than_zero = np.greater(diff, 0).astype(int)
+    # Create an Index Matrix with the Condition for Undercapacity
     less_than_or_equal_zero = np.less_equal(diff, 0).astype(int)
 
+    # Calculation of the Revenue with in the Overcapacity Condition
     Revenue1 = greater_than_zero * (
         (D * r_K_rent + K * r_K + th * D * r_D)
         - ((K - D) * r_K_rent + (K - D) * th * r_K)
     )
-
+    # Calculation of the Revenue with in the Undercapacity Condition
     Revenue2 = less_than_or_equal_zero * (K * r_K_rent + K * r_K + th * D * r_D)
-
+    # Combine the two Revenue Matrices
     Revenue = Revenue1 + Revenue2
     # Operationals Costs as a function of Demand and Capacity
     Cost_Ops = co_K * K + co_D * th * D
@@ -202,7 +206,7 @@ def Decision_Rule(D, K0, theta, deltaK):
     Args:
         D               Demand Vector                       np.array
         K0              Initial Capacity                    integer
-        theta           Capacity increase vector            list with 3 integers
+        theta           Capacity increase vector            list with 4 integers
         deltaK          Capacity Difference Condition       list with 3 integers
 
     Returns:
@@ -211,6 +215,19 @@ def Decision_Rule(D, K0, theta, deltaK):
     To call this Function use following syntax:
         Decision_Rule(D, K0, theta)
     """
+    # Check if theta has a length of four values and if all values are of int type
+    if len(theta) != 4 or not all(isinstance(value, int) for value in theta):
+        raise ValueError(
+            "Theta is either not of length 4 or includes values other than integers only"
+        )
+    # Check if deltaK has a length of four values and if all values are of int type
+    if len(deltaK) != 3 or not all(isinstance(value, int) for value in theta):
+        raise ValueError(
+            "deltaK is either not of length 3 or includes values other than integers only"
+        )
+
+    print("Theta and deltaK match the requirements")
+
     # If loop when the Demand Matrix is only a Vector
     if D.ndim == 1:
         D = D.reshape(1, -1)
@@ -218,43 +235,51 @@ def Decision_Rule(D, K0, theta, deltaK):
         D = D
     # Create an array of the same shape as D initialized with K0
     K_Flex = np.full(D.shape, K0, dtype=D.dtype)
-    # For loop to iterate over all Scenarios
-    for i in range(D.shape[0]):
-        # For loop to iterate over all values of a Scenario
-        for j in range(D.shape[1]):
-            # if condition to check for overcapacity
-            if (K_Flex[i, j - 1] - D[i, j]) > 0:
-                new_capacity = K_Flex[i, j - 1]
-            # elif condition to check the severity of the capacity deficit
-            elif (K_Flex[i, j - 1] - D[i, j]) == 0:
-                new_capacity = K_Flex[i, j - 1] + theta[0]
-            # elif condition to check the severity of the capacity deficit
-            elif (K_Flex[i, j - 1] - D[i, j]) < -deltaK[0]:
-                new_capacity = K_Flex[i, j - 1] + theta[1]
-            # elif condition to check the severity of capacity deficit
-            elif (K_Flex[i, j - 1] - D[i, j]) < -deltaK[1]:
-                new_capacity = K_Flex[i, j - 1] + theta[2]
-            # else condition to check the severity of the Capacity deficit
-            else:
-                new_capacity = K_Flex[i, j - 1] + theta[3]
-            # changing the Capacity values for the given overcapacity or deficit
-            K_Flex[i, j] = new_capacity
+    # For loop to iterate over all values of a Scenario
+    for t in range(D.shape[1]):
+        # Calculate the Difference Matrix
+        diff = K_Flex[:, t - 1] - D[:, t]
+        # Create an Index Matrix with the Condition for Overcapacity
+        over_capacity = np.greater(diff, 0).astype(int)
+        # Create an Index Matrix with the Condition between 0 and -2 Undercapacity
+        under_capacity1 = np.logical_and(
+            np.less_equal(diff, 0), np.greater(diff, -deltaK[0])
+        ).astype(int)
+        # Create an Index Matrix with the Condition between -2 and -5 Undercapacity
+        under_capacity2 = np.logical_and(
+            np.less_equal(diff, -deltaK[0]), np.greater(diff, -deltaK[1])
+        ).astype(int)
+        # Create an Index Matrix with the Condition between -2 and -5 Undercapacity
+        under_capacity3 = np.logical_and(
+            np.less_equal(diff, -deltaK[1]), np.greater(diff, -deltaK[2])
+        ).astype(int)
+        # Create an Index Matrix with the Condition less or equal than -10 Undercapacity
+        under_capacity4 = np.less_equal(diff, -deltaK[2]).astype(int)
+
+        # Update K_Flex for the next iteration
+        K_Flex[:, t] = (
+            over_capacity * (K_Flex[:, t - 1])
+            + under_capacity1 * (K_Flex[:, t - 1] + theta[0])
+            + under_capacity2 * ((K_Flex[:, t - 1]) + theta[1])
+            + under_capacity3 * ((K_Flex[:, t - 1]) + theta[2])
+            + under_capacity4 * ((K_Flex[:, t - 1]) + theta[3])
+        )
     return K_Flex
 
 
 def Decision_Rule_Excel(D, K0=25, deltaK_Flex=5):
-    """This function is creating new Capacity Vectors while considering a decision rule
+    """This function creates new Capacity Vectors while considering a decision rule.
 
     Args:
-        D               Demand Vector                       np.array
-        K0              Initial Capacity                    integer
-        deltaK_flex     Capacity increase vector            int
+        D               Demand Vector               np.array
+        K0              Initial Capacity            integer
+        deltaK_Flex     Capacity increase vector    int
 
     Returns:
         K_Flex          Capacity vector considering a decision rule    np.array
 
-    To call this Function use following syntax:
-        Decision_Rule(D, K0, deltaK_Flex)
+    To call this Function use the following syntax:
+        Decision_Rule_Excel(D, K0, deltaK_Flex)
     """
     # If loop when the Demand Matrix is only a Vector
     if D.ndim == 1:
@@ -263,29 +288,31 @@ def Decision_Rule_Excel(D, K0=25, deltaK_Flex=5):
         D = D
     # Creation of an array with the same shape as D initialized with K0
     K_Flex = np.full(D.shape, K0, dtype=D.dtype)
-    # For loop to iterate over all Scenarios
-    for i in range(D.shape[0]):
-        # For loop to iterate over all values of a Scenario
-        for j in range(D.shape[1]):
-            # if condition to check for overcapacity
-            if (K_Flex[i, j - 1] - D[i, j]) > 0:
-                new_capacity = K_Flex[i, j - 1]
-            # else condition to check  for undercapacity
-            else:
-                new_capacity = K_Flex[i, j - 1] + deltaK_Flex
-            # changing the Capacity values for the given overcapacity or deficit
-            K_Flex[i, j] = new_capacity
+
+    # For loop to iterate over all values of a Scenario
+    for t in range(D.shape[1]):
+        # Calculate the Difference Matrix
+        diff = K_Flex[:, t - 1] - D[:, t]
+        # Create an Index Matrix with the Condition for Overcapacity
+        over_capacity = np.greater(diff, 0).astype(int)
+        # Create an Index Matrix with the Condition for Undercapacity
+        under_capacity = np.less_equal(diff, 0).astype(int)
+        # Update K_Flex for the next iteration
+        K_Flex[:, t] = over_capacity * (K_Flex[:, t - 1]) + under_capacity * (
+            K_Flex[:, t - 1] + deltaK_Flex
+        )
     return K_Flex
 
 
 def CDF_Plot(Vector1, Vector2):
     """This function is Plotting the Cumulative Density Function of the NPVs
     Args:
-        Vector1         Traditional Input Vector 1       np.array
-        Vector1         Flexible Input Vector 1          np.array
+        Vector1         Traditional Input Vector 1              np.array
+        Vector1         Flexible Input Vector 1                 np.array
 
     Returns:
         Plot of all input Vectors in a CDF Graphic
+        Percentiles     10th, 90th Percentile Input Vectors     np.array
 
     To call this Function use following syntax:
         CDF_Plot(Vector1, Vector2)
@@ -367,7 +394,8 @@ def CDF_Plot(Vector1, Vector2):
     ax.set_ylabel("Cumulative Probability [%]")
     ax.legend()
     plt.show()
-    return [percentile_10a, percentile_90a, percentile_10b, percentile_90b]
+    percentiles = [percentile_10a, percentile_90a, percentile_10b, percentile_90b]
+    return percentiles
 
 
 def Capacity_Vector_Check(Capacity_Vector, Demand_Array):
@@ -389,11 +417,13 @@ def Capacity_Vector_Check(Capacity_Vector, Demand_Array):
         Demand_Array = Demand_Array
 
     # Condition to check the Shape
-    some_condition = len(Capacity_Vector) == Demand_Array.shape[1]
+    condition = len(Capacity_Vector) == Demand_Array.shape[1]
 
     # If loop to Check the condition
-    if not some_condition:
+    if not condition:
         print("Error: Capacity Vector Doesn't Match the Demand Array Shape")
+        print(" Length Capacity Vector = ", len(Capacity_Vector))
+        print(" Expected Length (Demand Array Shape) = ", Demand_Array.shape[1])
         sys.exit()
     # Continue with the rest of your code if the condition is met
     print("Capacity Vector Matches the Demand Array Shape")
