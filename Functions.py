@@ -76,7 +76,6 @@ def Scenario_plot(
     To Call the Function use following syntax:
         Scenario_plot(Scenarios, Fth)
     """
-
     # Adding one to the time horizon as Python starts counting from zero
     Fth += 1
 
@@ -140,7 +139,6 @@ def NPV_Calculation(
     To call this Function use following syntax:
         NPV_Calculation_Fix(D, K, Fth, dt, r_D, r_K, co_K, co_D, ci_K, discount, EoS)
     """
-
     # If loop when the Demand is only a Vector
     if D.ndim == 1:
         D = D.reshape(1, -1)
