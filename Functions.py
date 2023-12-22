@@ -1,9 +1,7 @@
 # Import of Packages
 import math
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-import random
 import sys
 
 
@@ -31,9 +29,6 @@ def Scenario_creation(mu, sigma, Dt0, dt=1, Fth=20, Forecasts=100):
     # Creation of a time length of the Scenario Vectors
     S2 = list(range(1, Fth))
 
-    # Spread of the Scenario can be adjusted here at randomrange
-    randomrange = np.arange(-1, 1, 0.1)
-
     # Initialise a Scenarios Vector
     Szenarios = []
     # For loop to iterate over all Forecasts
@@ -42,9 +37,10 @@ def Scenario_creation(mu, sigma, Dt0, dt=1, Fth=20, Forecasts=100):
         D = [Dt0]
         # Second for loop to iterate over the time length of the Scenarios
         for j in S2:
+            # Random number for Spread of the Scenario
+            randomrange = np.random.normal(0, 1)
             Szenario = D[j - 1] + (
-                D[j - 1] * mu * dt
-                + D[j - 1] * sigma * random.choice(randomrange) * math.sqrt(dt)
+                D[j - 1] * mu * dt + D[j - 1] * sigma * randomrange * math.sqrt(dt)
             )
             # Append all individual Demand Curves to the Scenarios
             D.append(Szenario)
@@ -58,7 +54,12 @@ def Scenario_creation(mu, sigma, Dt0, dt=1, Fth=20, Forecasts=100):
 
 
 def Scenario_plot(
-    Scenarios, Fth=20, NoStep=True, Title="Demand Szenarios", label="Passenger Numbers"
+    Scenarios,
+    Fth=20,
+    NoStep=True,
+    Title="Demand Szenarios",
+    label="Passenger Numbers",
+    n=40,
 ):
     """This function is plotting the Scenarios Created in the Scenario function
 
@@ -68,6 +69,7 @@ def Scenario_plot(
         NoStep      Question if Step Plot or not        bool
         Title       Title for the Plot                  str
         ylabel      Y-Axis Description                  str
+        n           Number of random selection          int
     Returns:
         Plot of all Demand Vectors in a Single Graph
 
@@ -84,7 +86,7 @@ def Scenario_plot(
     else:
         Scenarios = Scenarios
 
-    indices = np.random.choice(Scenarios.shape[0], size=(40))
+    indices = np.random.choice(Scenarios.shape[0], size=(n))
     Small_Scenario = Scenarios[indices]
 
     plotvector = list(range(1, (Fth)))
@@ -100,7 +102,7 @@ def Scenario_plot(
     plt.figure()
 
 
-def NPV_Calculation_Fix(
+def NPV_Calculation(
     D,
     K,
     Fth,
@@ -220,7 +222,7 @@ def Decision_Rule(D, K0, theta, deltaK):
         raise ValueError(
             "Theta is either not of length 4 or includes values other than integers only"
         )
-    # Check if deltaK has a length of four values and if all values are of int type
+    # Check if deltaK has a length of three values and if all values are of int type
     if len(deltaK) != 3 or not all(isinstance(value, int) for value in theta):
         raise ValueError(
             "deltaK is either not of length 3 or includes values other than integers only"
@@ -294,9 +296,9 @@ def Decision_Rule_Excel(D, K0=25, deltaK_Flex=5):
         # Calculate the Difference Matrix
         diff = K_Flex[:, t - 1] - D[:, t]
         # Create an Index Matrix with the Condition for Overcapacity
-        over_capacity = np.greater(diff, 0).astype(int)
+        over_capacity = np.greater_equal(diff, 0).astype(int)
         # Create an Index Matrix with the Condition for Undercapacity
-        under_capacity = np.less_equal(diff, 0).astype(int)
+        under_capacity = np.less(diff, 0).astype(int)
         # Update K_Flex for the next iteration
         K_Flex[:, t] = over_capacity * (K_Flex[:, t - 1]) + under_capacity * (
             K_Flex[:, t - 1] + deltaK_Flex
