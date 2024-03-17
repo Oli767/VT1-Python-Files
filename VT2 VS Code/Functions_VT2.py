@@ -5,7 +5,56 @@ import matplotlib.pyplot as plt
 import sys
 
 
-def Scenario_creation(mu, sigma, Dt0, dt=1, Fth=20, Forecasts=100):
+# def Scenario_creation(mu, sigma, Dt0, dt=1, Fth=20, Forecasts=100):
+#     """This function is calculating a denfined numer of Scenarios
+
+#     Args:
+#         mu          Mean Percentage Growth mu                       float
+#         sigma       Standart Deviation of Percentage Growth         float
+#         Dt0         Initial Demand t0                               int
+#         dt          Duration of Delta t in Years                    int
+#         Fth         Forecast time horizon                           int
+#         Forecasts   # number of Forecasts (+1 case we start at 0)   int
+#     Returns:
+#         Szenarios                                                   np.array
+
+#     To Call the Function use following syntax:
+#         Scenario_creation(mu, sigma, Dt0, dt, Fth, Forecasts)
+#     """
+#     # Adding one to the time horizon and Forecast as Python starts counting from zero
+#     Fth += 1
+#     Forecasts += 1
+#     # Creation of Number of Forecast Vector
+#     S = list(range(1, Forecasts))
+#     # Creation of a time length of the Scenario Vectors
+#     S2 = list(range(1, Fth))
+
+
+#     # Initialise a Scenarios Vector
+#     Szenarios = []
+#     # For loop to iterate over all Forecasts
+#     for i in S:
+#         # Add Demand at t0 to the Vector
+#         D = [Dt0]
+#         # Second for loop to iterate over the time length of the Scenarios
+#         for j in S2:
+#             # Random number for Spread of the Scenario
+#             randomrange = np.random.normal(0, 1)
+#             Szenario = D[j - 1] + (
+#                 D[j - 1] * mu * dt + D[j - 1] * sigma * randomrange * math.sqrt(dt)
+#             )
+#             # Append all individual Demand Curves to the Scenarios
+#             D.append(Szenario)
+#         # Append all Demand Vectors to the Scenarios Maxtrix
+#         Szenarios.append(D)
+#     # Change Shape to an Numpy Array
+#     Szenarios = np.array(Szenarios)
+#     # Get rid of the Initial Demand Value
+#     Szenarios = Szenarios[:, 1:]
+#     return Szenarios
+
+
+def generate_scenarios(mu, sigma, Dt0, dt, Fth=20, Forecasts=100):
     """This function is calculating a denfined numer of Scenarios
 
     Args:
@@ -21,36 +70,19 @@ def Scenario_creation(mu, sigma, Dt0, dt=1, Fth=20, Forecasts=100):
     To Call the Function use following syntax:
         Scenario_creation(mu, sigma, Dt0, dt, Fth, Forecasts)
     """
-    # Adding one to the time horizon and Forecast as Python starts counting from zero
-    Fth += 1
-    Forecasts += 1
-    # Creation of Number of Forecast Vector
-    S = list(range(1, Forecasts))
-    # Creation of a time length of the Scenario Vectors
-    S2 = list(range(1, Fth))
+    np.random.seed(1)
 
-    # Initialise a Scenarios Vector
-    Szenarios = []
-    # For loop to iterate over all Forecasts
-    for i in S:
-        # Add Demand at t0 to the Vector
-        D = [Dt0]
-        # Second for loop to iterate over the time length of the Scenarios
-        for j in S2:
-            # Random number for Spread of the Scenario
-            randomrange = np.random.normal(0, 1)
-            Szenario = D[j - 1] + (
-                D[j - 1] * mu * dt + D[j - 1] * sigma * randomrange * math.sqrt(dt)
-            )
-            # Append all individual Demand Curves to the Scenarios
-            D.append(Szenario)
-        # Append all Demand Vectors to the Scenarios Maxtrix
-        Szenarios.append(D)
-    # Change Shape to an Numpy Array
-    Szenarios = np.array(Szenarios)
-    # Get rid of the Initial Demand Value
-    Szenarios = Szenarios[:, 1:]
-    return Szenarios
+    # Create arrays for indices
+    S = np.arange(0, Forecasts)
+    S2 = np.arange(0, Fth + 1)
+
+    # Random values for spread of the scenario
+    random_values = np.random.normal(0, 1, size=(len(S), len(S2) - 1))
+
+    # Demand
+    D = Dt0 * np.exp((mu * dt + sigma * np.sqrt(dt) * random_values).cumsum(axis=1))
+
+    return D
 
 
 def Scenario_plot(
