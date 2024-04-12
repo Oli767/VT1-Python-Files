@@ -13,6 +13,7 @@ matplotlib = "^3.8.3"
 openpyxl = "^3.1.2"
 scipy = "^1.12.0"
 geneticalgorithm = "^1.0.2"
+deap = "^1.4.1"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.3"
