@@ -336,7 +336,14 @@ def Decision_Rule_Excel(D, K0=25, deltaK_Flex=5):
     return K_Flex
 
 
-def CDF_Plot(Vector1, Vector2):
+def CDF_Plot(
+    Vector1,
+    Vector2,
+    label1="Example CDF Curve",
+    label2="Optimized CDF Curve",
+    label3="Example ENPV",
+    label4="Optimized ENPV",
+):
     """This function is Plotting the Cumulative Density Function of the NPVs
     Args:
         Vector1         Traditional Input Vector 1              np.array
@@ -362,7 +369,7 @@ def CDF_Plot(Vector1, Vector2):
         np.sort(Vector1),
         np.arange(1, len(Vector1) + 1) / float(len(Vector1)),
         linestyle="-",
-        label="Example CDF Curve",
+        label=label1,
         linewidth=2,
         color="green",
         alpha=0.7,
@@ -372,7 +379,7 @@ def CDF_Plot(Vector1, Vector2):
         np.sort(Vector2),
         np.arange(1, len(Vector2) + 1) / float(len(Vector2)),
         linestyle="-",
-        label="Optimized CDF Curve",
+        label=label2,
         linewidth=2,
         color="blue",
         alpha=0.7,
@@ -384,7 +391,7 @@ def CDF_Plot(Vector1, Vector2):
         np.sort(Vector3),
         np.arange(1, len(Vector3) + 1) / float(len(Vector3)),
         linestyle="--",
-        label="Example ENPV",
+        label=label3,
         linewidth=2,
         color="green",
         alpha=0.7,
@@ -395,7 +402,7 @@ def CDF_Plot(Vector1, Vector2):
         np.sort(Vector4),
         np.arange(1, len(Vector4) + 1) / float(len(Vector4)),
         linestyle="-.",
-        label="Optimized ENPV",
+        label=label4,
         linewidth=2,
         color="blue",
         alpha=0.7,
