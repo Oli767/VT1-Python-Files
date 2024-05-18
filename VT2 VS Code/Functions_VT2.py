@@ -17,30 +17,40 @@ import random
 from deap import base, creator, tools
 
 
-def generate_scenarios(mu, sigma, Dt0, dt, Fth=20, Forecasts=100):
-    """This function is calculating a denfined numer of Scenarios
+def generate_scenarios(Param):
+    """
+    This function is calculating a denfined numer of scenarios (Forecasts)
+    with a defined number of years (Fth)
 
     Args:
-        mu          Mean Percentage Growth mu                       float
-        sigma       Standart Deviation of Percentage Growth         float
-        Dt0         Initial Demand t0                               int
-        dt          Duration of Delta t in Years                    int
-        Fth         Forecast time horizon                           int
-        Forecasts   # number of Forecasts (+1 case we start at 0)   int
+        mu (float): Mean Percentage Growth mu
+        sigma (float): Standart Deviation of Percentage Growth
+        Dt0 (int): Initial Demand t0
+        dt (int): Duration of Delta t in Years
+        Fth (int): Forecast Time Horizon
+        Forecasts(int): Number of Forecasts (+1 since python starts at 0)
     Returns:
-        Szenarios                                                   np.array
+        Demand (ndarray): Scenario Matrix
 
-    To Call the Function use following syntax:
+    To call the function use following syntax:
         Scenario_creation(mu, sigma, Dt0, dt, Fth, Forecasts)
     """
+    # Parameters
+    mu = Param["mu"]
+    sigma = Param["sigma"]
+    Dt0 = Param["Dt0"]
+    dt = Param["dt"]
+    Fth = Param["Fth"]
+    Forecasts = Param["Forecasts"]
+
     np.random.seed(1)
 
     # Create arrays for indices
-    S = np.arange(0, Forecasts)
-    S2 = np.arange(0, Fth + 1)
+    scenarios = np.arange(0, Forecasts)
+    timeseries = np.arange(0, Fth + 1)
 
     # Random values for spread of the scenario
-    random_values = np.random.normal(0, 1, size=(len(S), len(S2) - 1))
+    random_values = np.random.normal(0, 1, size=(len(scenarios), len(timeseries) - 1))
 
     # Demand
     D = Dt0 * np.exp((mu * dt + sigma * np.sqrt(dt) * random_values).cumsum(axis=1))
@@ -56,19 +66,21 @@ def Scenario_plot(
     label="Passenger Numbers",
     n=40,
 ):
-    """This function is plotting the Scenarios Created in the Scenario function
+    """
+    This function is plotting any vector against the forecast time horizon vector Fth,
+    it shows only a selected number (n) of plots
 
     Args:
-        Scenarios   Szenario Data                       np.array
-        Fth         Forecast time horizon               int
-        NoStep      Question if Step Plot or not        bool
-        Title       Title for the Plot                  str
-        ylabel      Y-Axis Description                  str
-        n           Number of random selection          int
+        Scenarios (ndarray): Szenario Data
+        Fth (int): Forecast Time Horizon
+        NoStep (bool): Question if Step Plot or not
+        Title (str): Title for the Plot
+        ylabel (str): Y-Axis Description
+        n (int): Number of random selection
     Returns:
-        Plot of all Demand Vectors in a Single Graph
+        Plot of n Demand Vectors Against the Forecast Time Horizon
 
-    To Call the Function use following syntax:
+    To call the function use following syntax:
         Scenario_plot(Scenarios, Fth)
     """
     # Adding one to the time horizon as Python starts counting from zero
@@ -98,16 +110,20 @@ def Scenario_plot(
 
 def Capacity(K0, delta_K, Forecasts):
     """
-    This Function returns the Capacity value in Matrix format for a given Initial
-    Capacity and delta Capacity Vector, copied according to the number of Forecasts
+    This function returns the capacity value in Matrix format for a given nitial
+    capacity (K0) and delta capacity vector (delta_K), copied according to the number of
+    scenarios (Forecasts)
 
     Args:
         K0 (int): Initial Capacity
-        delta_K (ndarray): delta Capacity Vector
-        Forecasts (int): Number of forecasts
+        delta_K (ndarray): Delta Capacity Vector
+        Forecasts (int): Number of Forecasts
 
     Returns:
         K (ndarray): Capacity Matrix
+
+    To call the function use following syntax:
+        Capacity(K0, delta_K, Forecasts)
     """
     # Repeat the delta_K vector 'Forecasts' times
     repeated_delta_K = np.repeat(delta_K[np.newaxis, :], Forecasts, axis=0)
@@ -120,17 +136,21 @@ def Capacity(K0, delta_K, Forecasts):
 
 def Revenue(K, D, r_K, r_K_rent, r_D):
     """
-    This Function calculates the Revenue
+    This Function calculates the revenue with the given inputs of capacity (K), demand
+    (d), and further Paramters
 
     Args:
         K (ndarray): Capacity Vector
         D (ndarray): Demand Matrix
-        r_K (float): _description_
-        r_K_rent (float): _description_
-        r_D (float): _description_
+        r_K (float): Revenues per Unit of Capacity per Period
+        r_K_rent (float): Rental Revenues per Unit of Capacity per Period
+        r_D (float): # Revenues per Unit of Demand per Period
 
     Returns:
         Total_Revenue (float): Revenue
+
+    To call the function use following syntax:
+        Revenue(K, D, r_K, r_K_rent, r_D)
     """
     diff = K - D
     greater_zero = np.greater(diff, 0).astype(int)
@@ -146,20 +166,24 @@ def Revenue(K, D, r_K, r_K_rent, r_D):
 
 def Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h):
     """
-    This Function calculates the Revenue
+    This Function calculates the cost with the given inputs of capacity (K), demand
+    (d), delta capacity vector (delta_K) and further Paramters
 
     Args:
         K (ndarray): Capacity Vector
         D (ndarray): Demand Matrix
-        delta_K (ndarray): delta Capacity Vector
+        delta_K (ndarray): Delta Capacity Vector
         co_K (float): Operating Cost per Unit of Capacity
         co_D (float): Operating Cost per Unit of Demand
         ci_K (float): Installation Cost per Unit of Capaciy
         EoS (float): Economy of Scale Factor
-        h (int): _description_
+        h (int): -
 
     Returns:
         Total_Cost (float): Cost
+
+    To call the function use following syntax:
+        Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h)
     """
     diff = K - D
     # Penalty Cost Overcapacity
@@ -182,16 +206,20 @@ def Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h):
 
 def NPV_calculation(K, D, delta_K, Param):
     """
-    This Function calculates the Net Present Value by calling the Revenue and Cost
-    Functions
+    This function calculates the Net Present Value by calling the Revenue and Cost
+    functions and multiplying it with the discount rate factor
 
     Args:
-        Revenue (ndarray): Total Revenue
-        Cost (ndarray): Total Cost
-        discount (float): discount rate
+        K (ndarray): Capacity Vector
+        D (ndarray): Demand Matrix
+        delta_K (ndarray): Delta Capacity Vector
+        Forecasts (int): Number of Forecasts
 
     Returns:
         NPV (ndarray): Net Present Value
+
+    To call the function use following syntax:
+        NPV_calculation(K, D, delta_K, Param)
     """
     # Parameters
     r_D = Param["r_D"]  # Revenues per Unit of Demand per Period
@@ -224,15 +252,19 @@ def NPV_calculation(K, D, delta_K, Param):
 
 def ENPV_calculation(delta_K, Param, D):
     """
-    This Function calculates the Expected Net Present Value by Calling the NPV
-    Calculation Function
+    This function calculates the Expected Net Present Value by Calling the NPV
+    Calculation function
 
     Args:
-        delta_K (ndarray): Capacity increase vector
-        Param (dictionary): Parameter Dictionary
+        delta_K (ndarray): Capacity Increase Vector
+        Param (dict): Parameter Dictionary
+        D (ndarray): Demand Matrix
 
     Returns:
         ENPV (ndarray): Expected Net Present Value
+
+    To call the function use following syntax:
+        ENPV_calculation(delta_K, Param, D)
     """
     K0 = Param["K0"]
     Forecasts = Param["Forecasts"]
@@ -244,14 +276,18 @@ def ENPV_calculation(delta_K, Param, D):
 
 def GA(Param, D):
     """
-    This is a Genetic Algorithm seeking to find an optimal delta_K Vector to
-    maximise the ENPV
+    This is a Genetic Algorithm seeking to find an optimal delta capacity vector
+    (delta_K) to maximise the NPV
 
     Args:
-        Param (Dictionary): Parameter Dictionary
+        Param (dict): Parameter Dictionary
+        D (ndarray): Demand Matrix
 
     Returns:
-        delta_K (ndarray): _description_
+        delta_K (ndarray): Capacity Increase Vector
+
+    To call the function use following syntax:
+        GA(Param, D)
     """
 
     # Define the vector of values
@@ -323,25 +359,23 @@ def GA(Param, D):
     return best_ind
 
 
-def CDF_Plot(
-    Vector1,
-    Vector2,
-    label1="Example CDF Curve",
-    label2="Optimized CDF Curve",
-    label3="Example ENPV",
-    label4="Optimized ENPV",
-):
-    """This function is Plotting the Cumulative Density Function of the NPVs
+def CDF_Plot(Vector1, Vector2, label1="Vector1", label2="Vector2"):
+    """
+    This function is Plotting the Cumulative Density Function of the NPVs
     Args:
-        Vector1         Traditional Input Vector 1              np.array
-        Vector1         Flexible Input Vector 1                 np.array
+        Vector1 (ndarray): Input Vector 1
+        Vector2 (ndarray): Input Vector 2
+        label1 (str): First CDF Curve
+        label2 (str): Second CDF Curve
+        label3 (str): First ENPV Value
+        label4 (str): Second ENPV Value
 
     Returns:
         Plot of all input Vectors in a CDF Graphic
-        Percentiles     10th, 90th Percentile Input Vectors     np.array
+        + Visualisation of the 10th, 90th Percentile of the Input Vectors
 
     To call this Function use following syntax:
-        CDF_Plot(Vector1, Vector2)
+        CDF_Plot(Vector1, Vector2, label1, label2, label3, label4)
     """
     percentile_10a = np.percentile(Vector1, 10)
     percentile_90a = np.percentile(Vector1, 90)
@@ -356,7 +390,7 @@ def CDF_Plot(
         np.sort(Vector1),
         np.arange(1, len(Vector1) + 1) / float(len(Vector1)),
         linestyle="-",
-        label=label1,
+        label=label1 + " CDF Curve",
         linewidth=2,
         color="green",
         alpha=0.7,
@@ -366,7 +400,7 @@ def CDF_Plot(
         np.sort(Vector2),
         np.arange(1, len(Vector2) + 1) / float(len(Vector2)),
         linestyle="-",
-        label=label2,
+        label=label2 + " CDF Curve",
         linewidth=2,
         color="blue",
         alpha=0.7,
@@ -378,7 +412,7 @@ def CDF_Plot(
         np.sort(Vector3),
         np.arange(1, len(Vector3) + 1) / float(len(Vector3)),
         linestyle="--",
-        label=label3,
+        label=label1 + " ENPV",
         linewidth=2,
         color="green",
         alpha=0.7,
@@ -389,7 +423,7 @@ def CDF_Plot(
         np.sort(Vector4),
         np.arange(1, len(Vector4) + 1) / float(len(Vector4)),
         linestyle="-.",
-        label=label4,
+        label=label2 + " ENPV",
         linewidth=2,
         color="blue",
         alpha=0.7,
@@ -422,3 +456,27 @@ def CDF_Plot(
     plt.show()
     percentiles = [percentile_10a, percentile_90a, percentile_10b, percentile_90b]
     return percentiles
+
+
+def Dockstands(K, Param):
+    """
+    This function calculates the Demand for Dockstands given a capacty (K) and
+    parameters (Param)
+
+    Args:
+        K (ndarray): Capacity Matrix
+        Param (dict): Parameter Dictionary
+
+    Returns:
+        dockstands (ndarray): Demand for Dockstands
+    """
+    # Parameters
+    DHL_factor_20 = Param["DHL_factor_20"]
+    p_Dock = Param["p_dock"]
+    p_schengen = Param["p_schengen"]
+    p_Dok_A_B = Param["p_Dok_A_B"]
+    PAXATM = Param["PAXATM"]
+
+    DHL = K * DHL_factor_20
+    dockstands = np.ceil((DHL * p_Dock * p_schengen * p_Dok_A_B) / PAXATM)
+    return dockstands
