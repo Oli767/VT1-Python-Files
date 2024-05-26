@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import statistics as st
 import time
+import itertools
 
 # Import of Packages for Functions
 import math
@@ -201,6 +202,7 @@ def Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h):
         + cos_overcapacity * (pc_over + (co_D * D + co_K * D))
         + cos_equalcapacity * (co_D * D + co_K * K)
     )
+
     return Total_Cost
 
 
@@ -359,6 +361,175 @@ def GA(Param, D):
     return best_ind
 
 
+def Decision_Rule(K0, D, theta, condition):
+    """
+    This function creates new delta capacity vector while considering a decision rule
+
+    Args:
+        K0 (int): Initial Capacity
+        D (ndarray): Demand Matrix
+        theta (ndarray): Capacity Change Vector
+        condition (int): Undercapacity at which Capacity will be increased
+
+    Returns:
+        delta_K_Flex (ndarray): delta capacity vector considering a decision rule
+
+    To call this function use the following syntax:
+        Decision_Rule(K0, D, theta, condition)
+    """
+    # Creation of an array with the same shape as D initialized with K0
+    K_Flex = np.full(D.shape, K0, dtype=D.dtype)
+
+    # Initialize the first column with K0
+    K_Flex[:, 0] = K0
+
+    # For loop to iterate over all values of a Scenario
+    for t in range(1, D.shape[1]):  # Start from t=1
+        # Calculate the Difference Matrix
+        diff = K_Flex[:, t - 1] - D[:, t]
+        # Create an Index Matrix with the Condition for Overcapacity
+        over_capacity = np.greater_equal(diff, condition).astype(int)
+        # Create an Index Matrix with the Condition for Undercapacity
+        under_capacity = np.less(diff, condition).astype(int)
+        # Update K_Flex for the next iteration
+        K_Flex[:, t] = over_capacity * K_Flex[:, t - 1] + under_capacity * (
+            K_Flex[:, t - 1] + theta
+        )
+
+        delta_K = np.diff((K_Flex / 1000000) - 25)
+        delta_K_Flex = np.insert(delta_K, 0, 0, axis=1)
+
+    return delta_K_Flex
+
+
+def Capacity2(K0, delta_K):
+    """
+    This function returns the Capacity in Matrix format for a given initial
+    capacity (K0) and delta capacity vector (delta_K)
+
+    Args:
+        K0 (int): Initial Capacity
+        delta_K (ndarray): Delta Capacity Vector
+
+    Returns:
+        K (ndarray): Capacity Matrix
+
+    To call this function use the following syntax:
+        Capacity2(K0, delta_K)
+    """
+    # Create a cumulative sum array starting from K0 for each forecast
+    K = K0 + np.cumsum(delta_K, axis=1) * 1000000
+
+    return K
+
+
+def NPV_Flexible(delta_K, Param, D):
+    """
+    This function calculates the Net Present Value for the flexible case by calling the
+    Capacity and NPV calculation functions
+
+    Args:
+        delta_K (ndarray): Delta Capacity Vector
+        Param (dict): Parameter Dictionary
+
+    Returns:
+        NPV (ndarray): Net Present Value for the Flexible Case
+
+    To call this function use the following syntax:
+        NPV_Flexible(delta_K, Param)
+    """
+    K0 = Param["K0"]
+    K_Flex = Capacity2(K0, delta_K)
+    NPV = fn.NPV_calculation(K_Flex, D, delta_K, Param)
+
+    return NPV
+
+
+def ENPV_Flexible(theta, condition, Param, D):
+    """
+    This function calculates the Expected Net Present Value by calling the Decision Rule
+    and NPV Flexible functions
+
+    Args:
+        theta (ndarray): Capacity increase value
+        condition (integer): Condition for Capacity increase (difference of K and D)
+        Param (dict): Parameter Dictionary
+        D (ndarray): Demand Matrix
+
+    Returns:
+        ENPV (ndarray): Expected Net Present Value in the Flexible case
+
+    To call this function use the following syntax:
+        ENPV_Flexible(theta, condition, Param, D)
+    """
+    K0 = Param["K0"]
+    delta_K = Decision_Rule(K0, D, theta, condition)
+    NPV = NPV_Flexible(delta_K, Param, D)
+    ENPV = np.mean(NPV)
+
+    return ENPV
+
+
+def Optimization(Param):
+    """
+    This function creates a list of tuples consisiting of each pair of theta and
+    condition
+
+    Args:
+        Param (dict): Parameter Dictionary
+
+    Returns:
+        optimization_params (list of tuples): List of Theta and Condition Tuple Pairs
+    """
+    # Theta
+    lower_theta = Param["lower_theta"]
+    upper_theta = Param["upper_theta"]
+    stepsize_theta = Param["stepsize_theta"]
+
+    # Condition
+    lower_cond = Param["lower_cond"]
+    upper_cond = Param["upper_cond"]
+    stepsize_cond = Param["stepsize_cond"]
+
+    # Creation of a List of Tuples
+    condition = np.arange(lower_cond, upper_cond, stepsize_cond)
+    theta = np.arange(lower_theta, upper_theta, stepsize_theta)
+    optimization_params = list(itertools.product(theta, condition))
+
+    return optimization_params
+
+
+def Evaluation(Param, D):
+    """
+    This function first calls the Optimization function to generate a list of tuples
+    consisiting of each paor of theta and conditon, it then continues to evaluates all
+    the tuples by iterating over each pair to find the maximum ENPV value.
+
+    Args:
+        Param (dict): Parameter Dictionary
+        D (ndarray): Demand Matrix
+
+    Returns:
+        max_enpv (int): Maximum value of the ENPV,
+        max_theta (int): optimal value of theta,
+        max_cond (int): optimal value of the condition
+    """
+    optimization_params = Optimization(Param)
+
+    max_enpv = float("-inf")  # Initialize max_enpv with a very small number
+    max_theta = None
+    max_cond = None
+
+    for theta, condition in optimization_params:
+        ENPV = ENPV_Flexible(theta, condition, Param, D)
+        if ENPV > max_enpv:
+            max_enpv = ENPV
+            max_theta = theta
+            max_cond = condition
+
+    return max_enpv, max_theta, max_cond
+
+
 def CDF_Plot(Vector1, Vector2, label1="Vector1", label2="Vector2"):
     """
     This function is Plotting the Cumulative Density Function of the NPVs
@@ -479,4 +650,5 @@ def Dockstands(K, Param):
 
     DHL = K * DHL_factor_20
     dockstands = np.ceil((DHL * p_Dock * p_schengen * p_Dok_A_B) / PAXATM)
+
     return dockstands
