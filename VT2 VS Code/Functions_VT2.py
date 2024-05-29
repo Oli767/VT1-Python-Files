@@ -111,7 +111,7 @@ def Scenario_plot(
 
 def Capacity(K0, delta_K, Forecasts):
     """
-    This function returns the capacity value in Matrix format for a given nitial
+    This function returns the capacity value in Matrix format for a given initial
     capacity (K0) and delta capacity vector (delta_K), copied according to the number of
     scenarios (Forecasts)
 
@@ -130,12 +130,12 @@ def Capacity(K0, delta_K, Forecasts):
     repeated_delta_K = np.repeat(delta_K[np.newaxis, :], Forecasts, axis=0)
 
     # Create a cumulative sum array starting from K0 for each forecast
-    K = K0 + np.cumsum(repeated_delta_K, axis=1) * 1000000
+    K = K0 + np.cumsum(repeated_delta_K, axis=1)
 
     return K
 
 
-def Revenue(K, D, r_K, r_K_rent, r_D):
+def Revenue(K, D, r_K, r_K_rent, r_D, condition):
     """
     This Function calculates the revenue with the given inputs of capacity (K), demand
     (d), and further Paramters
@@ -154,8 +154,8 @@ def Revenue(K, D, r_K, r_K_rent, r_D):
         Revenue(K, D, r_K, r_K_rent, r_D)
     """
     diff = K - D
-    greater_zero = np.greater(diff, 0).astype(int)
-    less_equal_zero = np.less_equal(diff, 0).astype(int)
+    greater_zero = np.greater(diff, condition).astype(int)
+    less_equal_zero = np.less_equal(diff, condition).astype(int)
     # if Overcapacity only amount of Demand can be sold
     rev_overcapacity = greater_zero * (D * r_K + D * r_K_rent + D * r_D)
     # if Undercapacity only available Capacity can be sold
@@ -165,7 +165,7 @@ def Revenue(K, D, r_K, r_K_rent, r_D):
     return Total_Revenue
 
 
-def Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h):
+def Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h, condition):
     """
     This Function calculates the cost with the given inputs of capacity (K), demand
     (d), delta capacity vector (delta_K) and further Paramters
@@ -192,8 +192,8 @@ def Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h):
     # Penalty Cost Undercapacity
     pc_under = 1
     # Create an Index Matrix with the Condition for undercapacity
-    cos_overcapacity = np.greater(diff, 0).astype(int)
-    cos_undercapacity = np.less(diff, 0).astype(int)
+    cos_overcapacity = np.greater(diff, condition).astype(int)
+    cos_undercapacity = np.less(diff, condition).astype(int)
     cos_equalcapacity = np.equal(diff, 0).astype(int)
 
     Total_Cost = (
@@ -206,7 +206,7 @@ def Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h):
     return Total_Cost
 
 
-def NPV_calculation(K, D, delta_K, Param):
+def NPV_calculation(K, D, delta_K, Param, condition):
     """
     This function calculates the Net Present Value by calling the Revenue and Cost
     functions and multiplying it with the discount rate factor
@@ -237,10 +237,10 @@ def NPV_calculation(K, D, delta_K, Param):
     dt = Param["dt"]
 
     # Revenue
-    Rev = Revenue(K, D, r_K, r_K_rent, r_D)
+    Rev = Revenue(K, D, r_K, r_K_rent, r_D, condition)
 
     # Cost
-    Cos = Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h)
+    Cos = Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h, condition)
 
     # Plus one because Python starts at Zero
     t = 1 + np.arange(0, Fth, dt)
@@ -252,7 +252,7 @@ def NPV_calculation(K, D, delta_K, Param):
     return NPV
 
 
-def ENPV_calculation(delta_K, Param, D):
+def ENPV_calculation(delta_K, Param, D, condition=0):
     """
     This function calculates the Expected Net Present Value by Calling the NPV
     Calculation function
@@ -271,12 +271,12 @@ def ENPV_calculation(delta_K, Param, D):
     K0 = Param["K0"]
     Forecasts = Param["Forecasts"]
     K = Capacity(K0, delta_K, Forecasts)
-    ENPV = np.mean(NPV_calculation(K, D, delta_K, Param))
+    ENPV = np.mean(NPV_calculation(K, D, delta_K, Param, condition))
 
     return ENPV
 
 
-def GA(Param, D):
+def GA(Param, D, condition=0):
     """
     This is a Genetic Algorithm seeking to find an optimal delta capacity vector
     (delta_K) to maximise the NPV
@@ -321,7 +321,7 @@ def GA(Param, D):
 
     # Define the evaluation function
     def evaluate(individual, Param=Param):
-        return (ENPV_calculation(individual, Param=Param, D=D),)
+        return (ENPV_calculation(individual, Param=Param, D=D, condition=condition),)
 
     toolbox.register("evaluate", evaluate)
 
@@ -396,7 +396,7 @@ def Decision_Rule(K0, D, theta, condition):
             K_Flex[:, t - 1] + theta
         )
 
-        delta_K = np.diff((K_Flex / 1000000) - 25)
+        delta_K = np.diff((K_Flex) - K0)
         delta_K_Flex = np.insert(delta_K, 0, 0, axis=1)
 
     return delta_K_Flex
@@ -418,12 +418,12 @@ def Capacity2(K0, delta_K):
         Capacity2(K0, delta_K)
     """
     # Create a cumulative sum array starting from K0 for each forecast
-    K = K0 + np.cumsum(delta_K, axis=1) * 1000000
+    K = K0 + np.cumsum(delta_K, axis=1)
 
     return K
 
 
-def NPV_Flexible(delta_K, Param, D):
+def NPV_Flexible(delta_K, Param, D, condition):
     """
     This function calculates the Net Present Value for the flexible case by calling the
     Capacity and NPV calculation functions
@@ -440,7 +440,7 @@ def NPV_Flexible(delta_K, Param, D):
     """
     K0 = Param["K0"]
     K_Flex = Capacity2(K0, delta_K)
-    NPV = fn.NPV_calculation(K_Flex, D, delta_K, Param)
+    NPV = fn.NPV_calculation(K_Flex, D, delta_K, Param, condition)
 
     return NPV
 
@@ -464,13 +464,13 @@ def ENPV_Flexible(theta, condition, Param, D):
     """
     K0 = Param["K0"]
     delta_K = Decision_Rule(K0, D, theta, condition)
-    NPV = NPV_Flexible(delta_K, Param, D)
+    NPV = NPV_Flexible(delta_K, Param, D, condition)
     ENPV = np.mean(NPV)
 
     return ENPV
 
 
-def Optimization(Param):
+def Optimization(Param, n):
     """
     This function creates a list of tuples consisiting of each pair of theta and
     condition
@@ -496,6 +496,9 @@ def Optimization(Param):
     theta = np.arange(lower_theta, upper_theta, stepsize_theta)
     optimization_params = list(itertools.product(theta, condition))
 
+    indices = np.random.choice(len(optimization_params), size=n, replace=False)
+    optimization_params_sample = [optimization_params[i] for i in indices]
+
     return optimization_params
 
 
@@ -514,7 +517,7 @@ def Evaluation(Param, D):
         max_theta (int): optimal value of theta,
         max_cond (int): optimal value of the condition
     """
-    optimization_params = Optimization(Param)
+    optimization_params = Optimization(Param, 100)
 
     max_enpv = float("-inf")  # Initialize max_enpv with a very small number
     max_theta = None
