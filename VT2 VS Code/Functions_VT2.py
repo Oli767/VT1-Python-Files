@@ -1,40 +1,24 @@
-# Import of Packages
-import numpy as np
-import pandas as pd
-import statistics as st
-import time
-import itertools
-
 # Import of Packages for Functions
-import math
-import matplotlib.pyplot as plt
-import sys
-
-# Importing the Functions File
-import Functions_VT2 as fn
-
-# Importing Packets for the Genetic Algorithm
+import numpy as np
 import random
+import matplotlib.pyplot as plt
 from deap import base, creator, tools
+import itertools
 
 
 def generate_scenarios(Param):
     """
-    This function is calculating a denfined numer of scenarios (Forecasts)
-    with a defined number of years (Fth)
+    This function is calculating a denfined number of scenarios (Forecasts)
+    with a defined (length) number of years (Fth)
 
     Args:
-        mu (float): Mean Percentage Growth mu
-        sigma (float): Standart Deviation of Percentage Growth
-        Dt0 (int): Initial Demand t0
-        dt (int): Duration of Delta t in Years
-        Fth (int): Forecast Time Horizon
-        Forecasts(int): Number of Forecasts (+1 since python starts at 0)
+        Param (dict): Parameter Dictionary
+
     Returns:
-        Demand (ndarray): Scenario Matrix
+        Demand (ndarray): Demand Matrix
 
     To call the function use following syntax:
-        Scenario_creation(mu, sigma, Dt0, dt, Fth, Forecasts)
+        Scenario_creation(Param)
     """
     # Parameters
     mu = Param["mu"]
@@ -53,7 +37,7 @@ def generate_scenarios(Param):
     # Random values for spread of the scenario
     random_values = np.random.normal(0, 1, size=(len(scenarios), len(timeseries) - 1))
 
-    # Demand
+    # Calculation of the Demand Matrix
     D = Dt0 * np.exp((mu * dt + sigma * np.sqrt(dt) * random_values).cumsum(axis=1))
 
     return D
@@ -68,21 +52,22 @@ def Scenario_plot(
     n=40,
 ):
     """
-    This function is plotting any vector against the forecast time horizon vector Fth,
-    it shows only a selected number (n) of plots
+    This function is plotting any data vector or matrix against the forecast time
+    horizon vector Fth, it allows to shows only a selected number (n) of plots
 
     Args:
-        Scenarios (ndarray): Szenario Data
+        Scenarios (ndarray): Szenario (Plotting) Data
         Fth (int): Forecast Time Horizon
         NoStep (bool): Question if Step Plot or not
         Title (str): Title for the Plot
-        ylabel (str): Y-Axis Description
-        n (int): Number of random selection
+        label (str): Y-Axis Description
+        n (int): Number of Random Selection
+
     Returns:
         Plot of n Demand Vectors Against the Forecast Time Horizon
 
     To call the function use following syntax:
-        Scenario_plot(Scenarios, Fth)
+        Scenario_plot(Scenarios, Fth, NoStep, Title, label, n)
     """
     # Adding one to the time horizon as Python starts counting from zero
     Fth += 1
@@ -109,16 +94,16 @@ def Scenario_plot(
     plt.figure()
 
 
-def Capacity(K0, delta_K, Forecasts):
+def Capacity(delta_K, Param):
     """
-    This function returns the capacity value in Matrix format for a given initial
-    capacity (K0) and delta capacity vector (delta_K), copied according to the number of
-    scenarios (Forecasts)
+    This function returns the capacity value in matrix format for a given initial
+    capacity (K0) and a delta capacity vector (delta_K), copied according to the number
+    of scenarios (Forecasts)
 
     Args:
         K0 (int): Initial Capacity
         delta_K (ndarray): Delta Capacity Vector
-        Forecasts (int): Number of Forecasts
+        Param (dict): Parameter Dictionary
 
     Returns:
         K (ndarray): Capacity Matrix
@@ -126,10 +111,14 @@ def Capacity(K0, delta_K, Forecasts):
     To call the function use following syntax:
         Capacity(K0, delta_K, Forecasts)
     """
+    # Parameter
+    K0 = Param["K0"]  # Initial Capacity
+    Forecasts = Param["Forecasts"]  # Number of Forecasts
+
     # Repeat the delta_K vector 'Forecasts' times
     repeated_delta_K = np.repeat(delta_K[np.newaxis, :], Forecasts, axis=0)
 
-    # Create a cumulative sum array starting from K0 for each forecast
+    # Create a cumulative sum array starting from initial capacity K0 for each forecast
     K = K0 + np.cumsum(repeated_delta_K, axis=1)
 
     return K
@@ -138,28 +127,35 @@ def Capacity(K0, delta_K, Forecasts):
 def Revenue(K, D, r_K, r_K_rent, r_D, condition):
     """
     This Function calculates the revenue with the given inputs of capacity (K), demand
-    (d), and further Paramters
+    (D), and further paramters
 
     Args:
         K (ndarray): Capacity Vector
         D (ndarray): Demand Matrix
         r_K (float): Revenues per Unit of Capacity per Period
         r_K_rent (float): Rental Revenues per Unit of Capacity per Period
-        r_D (float): # Revenues per Unit of Demand per Period
+        r_D (float): Revenues per Unit of Demand per Period
+        condition (int): Condition for Capacity Increase (difference of K and D)
 
     Returns:
         Total_Revenue (float): Revenue
 
     To call the function use following syntax:
-        Revenue(K, D, r_K, r_K_rent, r_D)
+        Revenue(K, D, r_K, r_K_rent, r_D, condition)
     """
+    # Calculating the difference matrix capacity minus demand
     diff = K - D
+
+    # Creating indent matrices for the given conditions
     greater_zero = np.greater(diff, condition).astype(int)
     less_equal_zero = np.less_equal(diff, condition).astype(int)
+
     # if Overcapacity only amount of Demand can be sold
     rev_overcapacity = greater_zero * (D * r_K + D * r_K_rent + D * r_D)
     # if Undercapacity only available Capacity can be sold
     rev_undercapacity = less_equal_zero * (K * r_K + K * r_K_rent + K * r_D)
+
+    # Summing up all the revenues
     Total_Revenue = rev_overcapacity + rev_undercapacity
 
     return Total_Revenue
@@ -168,7 +164,7 @@ def Revenue(K, D, r_K, r_K_rent, r_D, condition):
 def Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h, condition):
     """
     This Function calculates the cost with the given inputs of capacity (K), demand
-    (d), delta capacity vector (delta_K) and further Paramters
+    (D), delta capacity vector (delta_K) and further Paramters
 
     Args:
         K (ndarray): Capacity Vector
@@ -179,22 +175,25 @@ def Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h, condition):
         ci_K (float): Installation Cost per Unit of Capaciy
         EoS (float): Economy of Scale Factor
         h (int): -
+        condition (int): Condition for Capacity Increase (difference of K and D)
 
     Returns:
         Total_Cost (float): Cost
 
     To call the function use following syntax:
-        Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h)
+        Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h, condition)
     """
+    # Calculating the difference matrix capacity minus demand
     diff = K - D
+
     # Penalty Cost Overcapacity
-    pc_over = 1
+    pc_over = 0
     # Penalty Cost Undercapacity
-    pc_under = 1
-    # Create an Index Matrix with the Condition for undercapacity
+    pc_under = 0
+    # Create an Index Matrix for over-, under-, and equalcapacity condition
     cos_overcapacity = np.greater(diff, condition).astype(int)
     cos_undercapacity = np.less(diff, condition).astype(int)
-    cos_equalcapacity = np.equal(diff, 0).astype(int)
+    cos_equalcapacity = np.equal(diff, condition).astype(int)
 
     Total_Cost = (
         ((ci_K * (delta_K) ** EoS) / h)
@@ -208,7 +207,7 @@ def Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h, condition):
 
 def NPV_calculation(K, D, delta_K, Param, condition):
     """
-    This function calculates the Net Present Value by calling the Revenue and Cost
+    This function calculates the net present value by calling the Revenue and Cost
     functions and multiplying it with the discount rate factor
 
     Args:
@@ -216,12 +215,13 @@ def NPV_calculation(K, D, delta_K, Param, condition):
         D (ndarray): Demand Matrix
         delta_K (ndarray): Delta Capacity Vector
         Forecasts (int): Number of Forecasts
+        condition (int): Condition for Capacity Increase (difference of K and D)
 
     Returns:
         NPV (ndarray): Net Present Value
 
     To call the function use following syntax:
-        NPV_calculation(K, D, delta_K, Param)
+        NPV_calculation(K, D, delta_K, Param, condition)
     """
     # Parameters
     r_D = Param["r_D"]  # Revenues per Unit of Demand per Period
@@ -232,21 +232,27 @@ def NPV_calculation(K, D, delta_K, Param, condition):
     ci_K = Param["ci_K"]  # Installation cost per unit of capacity
     discount = Param["discount"]  # Discount factor
     EoS = Param["EoS"]  # EoS factor
-    h = Param["h"]
-    Fth = Param["Fth"]
-    dt = Param["dt"]
+    h = Param["h"]  # h
+    Fth = Param["Fth"]  # Time Horizon of Forecasts in Steptime
+    dt = Param["dt"]  # Steptime in Years
 
-    # Revenue
+    # Calling the Revenue function
     Rev = Revenue(K, D, r_K, r_K_rent, r_D, condition)
 
-    # Cost
+    # Calling the Cost function
     Cos = Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h, condition)
 
     # Plus one because Python starts at Zero
     t = 1 + np.arange(0, Fth, dt)
+
+    # Calculation of the profit
     Profit = Rev - Cos
+
+    # Calulation of the present value with the discount rate factor
     Discount = 1 / (1 + discount) ** t
     Present_value = Profit * Discount
+
+    # Sum up all present values for the net present value
     NPV = np.sum(Present_value, axis=1)
 
     return NPV
@@ -254,23 +260,25 @@ def NPV_calculation(K, D, delta_K, Param, condition):
 
 def ENPV_calculation(delta_K, Param, D, condition=0):
     """
-    This function calculates the Expected Net Present Value by Calling the NPV
+    This function calculates the expected net present value by calling the NPV
     Calculation function
 
     Args:
         delta_K (ndarray): Capacity Increase Vector
         Param (dict): Parameter Dictionary
         D (ndarray): Demand Matrix
+        condition (int): Condition for Capacity Increase (difference of K and D)
 
     Returns:
         ENPV (ndarray): Expected Net Present Value
 
     To call the function use following syntax:
-        ENPV_calculation(delta_K, Param, D)
+        ENPV_calculation(delta_K, Param, D, condition)
     """
-    K0 = Param["K0"]
-    Forecasts = Param["Forecasts"]
-    K = Capacity(K0, delta_K, Forecasts)
+    # Calling the Capacity function to generate a Capacity Matrix made of delta_K vector
+    K = Capacity(delta_K, Param)
+
+    # Calculating the mean of all NPVs to get the ENPV
     ENPV = np.mean(NPV_calculation(K, D, delta_K, Param, condition))
 
     return ENPV
@@ -284,15 +292,16 @@ def GA(Param, D, condition=0):
     Args:
         Param (dict): Parameter Dictionary
         D (ndarray): Demand Matrix
+        condition (int): Condition for Capacity Increase (difference of K and D)
 
     Returns:
         delta_K (ndarray): Capacity Increase Vector
 
     To call the function use following syntax:
-        GA(Param, D)
+        GA(Param, D, condition)
     """
 
-    # Define the vector of values
+    # Define the vector of capacity values allowed to use
     value_vector = Param["allowed_values"]
 
     # Create the DEAP framework
@@ -319,13 +328,13 @@ def GA(Param, D, condition=0):
     # Register the mutation operator
     toolbox.register("mutate", mutate_individual)
 
-    # Define the evaluation function
+    # Define an evaluation function
     def evaluate(individual, Param=Param):
         return (ENPV_calculation(individual, Param=Param, D=D, condition=condition),)
 
     toolbox.register("evaluate", evaluate)
 
-    # Define the genetic operators
+    # Define genetic operators
     toolbox.register("mate", tools.cxTwoPoint)
     toolbox.register("select", tools.selTournament, tournsize=3)
 
@@ -333,7 +342,7 @@ def GA(Param, D, condition=0):
     population = toolbox.population(n=Param["population"])
     cxpb, mutpb, ngen = 0.5, 0.2, 10
 
-    # Perform the evolution
+    # Performance of the evolution
     for gen in range(ngen):
         offspring = toolbox.select(population, len(population))
         offspring = list(map(toolbox.clone, offspring))
@@ -369,7 +378,7 @@ def Decision_Rule(K0, D, theta, condition):
         K0 (int): Initial Capacity
         D (ndarray): Demand Matrix
         theta (ndarray): Capacity Change Vector
-        condition (int): Undercapacity at which Capacity will be increased
+        condition (int): Condition for Capacity Increase (difference of K and D)
 
     Returns:
         delta_K_Flex (ndarray): delta capacity vector considering a decision rule
@@ -377,25 +386,24 @@ def Decision_Rule(K0, D, theta, condition):
     To call this function use the following syntax:
         Decision_Rule(K0, D, theta, condition)
     """
-    # Creation of an array with the same shape as D initialized with K0
+    # Creation of an array with the same shape as D initialized with initial capacity K0
     K_Flex = np.full(D.shape, K0, dtype=D.dtype)
-
-    # Initialize the first column with K0
-    K_Flex[:, 0] = K0
 
     # For loop to iterate over all values of a Scenario
     for t in range(1, D.shape[1]):  # Start from t=1
         # Calculate the Difference Matrix
         diff = K_Flex[:, t - 1] - D[:, t]
-        # Create an Index Matrix with the Condition for Overcapacity
+
+        # Create an Index Matrix for the condition of over- and undercapacity
         over_capacity = np.greater_equal(diff, condition).astype(int)
-        # Create an Index Matrix with the Condition for Undercapacity
         under_capacity = np.less(diff, condition).astype(int)
+
         # Update K_Flex for the next iteration
         K_Flex[:, t] = over_capacity * K_Flex[:, t - 1] + under_capacity * (
             K_Flex[:, t - 1] + theta
         )
 
+        # Calculation of the delta capacity vector delta_K
         delta_K = np.diff((K_Flex) - K0)
         delta_K_Flex = np.insert(delta_K, 0, 0, axis=1)
 
@@ -405,7 +413,7 @@ def Decision_Rule(K0, D, theta, condition):
 def Capacity2(K0, delta_K):
     """
     This function returns the Capacity in Matrix format for a given initial
-    capacity (K0) and delta capacity vector (delta_K)
+    capacity (K0) and the delta capacity vector (delta_K)
 
     Args:
         K0 (int): Initial Capacity
@@ -431,6 +439,7 @@ def NPV_Flexible(delta_K, Param, D, condition):
     Args:
         delta_K (ndarray): Delta Capacity Vector
         Param (dict): Parameter Dictionary
+        condition (int): Condition for Capacity Increase (difference of K and D)
 
     Returns:
         NPV (ndarray): Net Present Value for the Flexible Case
@@ -438,9 +447,14 @@ def NPV_Flexible(delta_K, Param, D, condition):
     To call this function use the following syntax:
         NPV_Flexible(delta_K, Param)
     """
-    K0 = Param["K0"]
+    # Parameter
+    K0 = Param["K0"]  # Initial Capacity
+
+    # Calling the Capacity2 function for the Capacity matrix
     K_Flex = Capacity2(K0, delta_K)
-    NPV = fn.NPV_calculation(K_Flex, D, delta_K, Param, condition)
+
+    # Calling the NPV calculation function for the NPV vector
+    NPV = NPV_calculation(K_Flex, D, delta_K, Param, condition)
 
     return NPV
 
@@ -448,11 +462,11 @@ def NPV_Flexible(delta_K, Param, D, condition):
 def ENPV_Flexible(theta, condition, Param, D):
     """
     This function calculates the Expected Net Present Value by calling the Decision Rule
-    and NPV Flexible functions
+    and NPV Flexible functions and using the theta and condition values
 
     Args:
         theta (ndarray): Capacity increase value
-        condition (integer): Condition for Capacity increase (difference of K and D)
+        condition (int): Condition for Capacity increase (difference of K and D)
         Param (dict): Parameter Dictionary
         D (ndarray): Demand Matrix
 
@@ -462,9 +476,16 @@ def ENPV_Flexible(theta, condition, Param, D):
     To call this function use the following syntax:
         ENPV_Flexible(theta, condition, Param, D)
     """
-    K0 = Param["K0"]
+    # Parameter
+    K0 = Param["K0"]  # Initial Capacity
+
+    # Calling the Decision Rule function for the delta capacity matrix
     delta_K = Decision_Rule(K0, D, theta, condition)
+
+    # Calling the NPV Flexible function for the NPV vector
     NPV = NPV_Flexible(delta_K, Param, D, condition)
+
+    # Calculating the mean of all NPVs to get the ENPV
     ENPV = np.mean(NPV)
 
     return ENPV
@@ -473,13 +494,16 @@ def ENPV_Flexible(theta, condition, Param, D):
 def Optimization(Param, n):
     """
     This function creates a list of tuples consisiting of each pair of theta and
-    condition
+    condition, it reduces the list to a random sample of size n
 
     Args:
         Param (dict): Parameter Dictionary
 
     Returns:
         optimization_params (list of tuples): List of Theta and Condition Tuple Pairs
+
+    To call this function use the following syntax:
+        Optimization(Param, n)
     """
     # Theta
     lower_theta = Param["lower_theta"]
@@ -499,14 +523,15 @@ def Optimization(Param, n):
     indices = np.random.choice(len(optimization_params), size=n, replace=False)
     optimization_params_sample = [optimization_params[i] for i in indices]
 
-    return optimization_params
+    return optimization_params_sample
 
 
-def Evaluation(Param, D):
+def Evaluation(Param, D, n=1000):
     """
     This function first calls the Optimization function to generate a list of tuples
-    consisiting of each paor of theta and conditon, it then continues to evaluates all
-    the tuples by iterating over each pair to find the maximum ENPV value.
+    consisiting of each pair (defined sample size n) of theta and conditon, it then
+    continues to evaluates all the tuples by iterating over each pair to find the
+    maximum ENPV value
 
     Args:
         Param (dict): Parameter Dictionary
@@ -516,10 +541,15 @@ def Evaluation(Param, D):
         max_enpv (int): Maximum value of the ENPV,
         max_theta (int): optimal value of theta,
         max_cond (int): optimal value of the condition
-    """
-    optimization_params = Optimization(Param, 100)
 
-    max_enpv = float("-inf")  # Initialize max_enpv with a very small number
+    To call this function use the following syntax:
+        Evaluation(Param, D, n)
+    """
+    # Calling the Optimization function to get the list of tuples
+    optimization_params = Optimization(Param, n)
+
+    # Initialize the maximum values
+    max_enpv = float("-inf")
     max_theta = None
     max_cond = None
 
@@ -643,13 +673,16 @@ def Dockstands(K, Param):
 
     Returns:
         dockstands (ndarray): Demand for Dockstands
+
+    To call this Function use following syntax:
+        Dockstands(K, Param)
     """
     # Parameters
-    DHL_factor_20 = Param["DHL_factor_20"]
-    p_Dock = Param["p_dock"]
-    p_schengen = Param["p_schengen"]
-    p_Dok_A_B = Param["p_Dok_A_B"]
-    PAXATM = Param["PAXATM"]
+    DHL_factor_20 = Param["DHL_factor_20"]  # Factor to calculate the Demand Hour
+    p_Dock = Param["p_dock"]  # Percentage of Pax using Dock Stands
+    p_schengen = Param["p_schengen"]  # Percentage of Pax travelling within Schengen
+    p_Dok_A_B = Param["p_Dok_A_B"]  # Percentage of Pax travelling from Dock A
+    PAXATM = Param["PAXATM"]  # Average passenger no carried per air traffic movement
 
     DHL = K * DHL_factor_20
     dockstands = np.ceil((DHL * p_Dock * p_schengen * p_Dok_A_B) / PAXATM)
