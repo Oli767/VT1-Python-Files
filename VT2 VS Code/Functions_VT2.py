@@ -6,7 +6,7 @@ from deap import base, creator, tools
 import itertools
 
 
-def generate_scenarios(Param):
+def Generate_scenarios(Param):
     """
     This function is calculating a denfined number of scenarios (Forecasts)
     with a defined (length) number of years (Fth)
@@ -147,13 +147,13 @@ def Revenue(K, D, r_K, r_K_rent, r_D, condition):
     diff = K - D
 
     # Creating indent matrices for the given conditions
-    greater_zero = np.greater(diff, condition).astype(int)
-    less_equal_zero = np.less_equal(diff, condition).astype(int)
+    greater = np.greater(diff, condition).astype(int)
+    less_equal = np.less_equal(diff, condition).astype(int)
 
     # if Overcapacity only amount of Demand can be sold
-    rev_overcapacity = greater_zero * (D * r_K + D * r_K_rent + D * r_D)
+    rev_overcapacity = greater * (D * r_K + D * r_K_rent + D * r_D)
     # if Undercapacity only available Capacity can be sold
-    rev_undercapacity = less_equal_zero * (K * r_K + K * r_K_rent + K * r_D)
+    rev_undercapacity = less_equal * (K * r_K + K * r_K_rent + K * r_D)
 
     # Summing up all the revenues
     Total_Revenue = rev_overcapacity + rev_undercapacity
@@ -241,12 +241,14 @@ def NPV_calculation(K, D, delta_K, Param, condition):
 
     # Calling the Cost function
     Cos = Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h, condition)
-
+    
+    # Calculation of the profit
+    Profit = Rev - Cos
+    
     # Plus one because Python starts at Zero
     t = 1 + np.arange(0, Fth, dt)
 
-    # Calculation of the profit
-    Profit = Rev - Cos
+    
 
     # Calulation of the present value with the discount rate factor
     Discount = 1 / (1 + discount) ** t
@@ -498,6 +500,7 @@ def Optimization(Param, n):
 
     Args:
         Param (dict): Parameter Dictionary
+        n (int): Sample Size
 
     Returns:
         optimization_params (list of tuples): List of Theta and Condition Tuple Pairs
@@ -536,6 +539,7 @@ def Evaluation(Param, D, n=1000):
     Args:
         Param (dict): Parameter Dictionary
         D (ndarray): Demand Matrix
+        n (int): Sample Size
 
     Returns:
         max_enpv (int): Maximum value of the ENPV,
