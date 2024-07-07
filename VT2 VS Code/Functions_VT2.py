@@ -241,14 +241,12 @@ def NPV_calculation(K, D, delta_K, Param, condition):
 
     # Calling the Cost function
     Cos = Cost(K, D, delta_K, co_K, co_D, ci_K, EoS, h, condition)
-    
+
     # Calculation of the profit
     Profit = Rev - Cos
-    
+
     # Plus one because Python starts at Zero
     t = 1 + np.arange(0, Fth, dt)
-
-    
 
     # Calulation of the present value with the discount rate factor
     Discount = 1 / (1 + discount) ** t
@@ -668,8 +666,8 @@ def CDF_Plot(Vector1, Vector2, label1="Vector1", label2="Vector2"):
 
 def Dockstands(K, Param):
     """
-    This function calculates the Demand for Dockstands given a capacty (K) and
-    parameters (Param)
+    This function calculates the Demand for Dockstands (Design Hour Load) given a
+    capacty (K) and parameters (Param)
 
     Args:
         K (ndarray): Capacity Matrix
@@ -682,7 +680,7 @@ def Dockstands(K, Param):
         Dockstands(K, Param)
     """
     # Parameters
-    DHL_factor_20 = Param["DHL_factor_20"]  # Factor to calculate the Demand Hour
+    DHL_factor_20 = Param["DHL_factor_20"]  # Factor to calculate the Design Hour Load
     p_Dock = Param["p_dock"]  # Percentage of Pax using Dock Stands
     p_schengen = Param["p_schengen"]  # Percentage of Pax travelling within Schengen
     p_Dok_A_B = Param["p_Dok_A_B"]  # Percentage of Pax travelling from Dock A
