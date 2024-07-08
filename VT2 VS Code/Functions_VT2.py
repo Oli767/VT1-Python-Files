@@ -115,11 +115,17 @@ def Capacity(delta_K, Param):
     K0 = Param["K0"]  # Initial Capacity
     Forecasts = Param["Forecasts"]  # Number of Forecasts
 
-    # Repeat the delta_K vector 'Forecasts' times
-    repeated_delta_K = np.repeat(delta_K[np.newaxis, :], Forecasts, axis=0)
-
-    # Create a cumulative sum array starting from initial capacity K0 for each forecast
-    K = K0 + np.cumsum(repeated_delta_K, axis=1)
+    if delta_K.ndim == 2:
+        # If delta_K is a matrix (has 2 Dimensions)
+        K = K0 + np.cumsum(delta_K, axis=1)
+    elif delta_K.ndim == 1:
+        # If delta_K is a vector (has 1 Dimension)
+        # Repeat the delta_K vector 'Forecasts' times
+        repeated_delta_K = np.repeat(delta_K[np.newaxis, :], Forecasts, axis=0)
+        # Create a cumulative sum array starting from initial capacity K0 for each forecast
+        K = K0 + np.cumsum(repeated_delta_K, axis=1)
+    else:
+        raise ValueError("delta_K must be either a 1D or 2D numpy array")
 
     return K
 
@@ -410,27 +416,6 @@ def Decision_Rule(K0, D, theta, condition):
     return delta_K_Flex
 
 
-def Capacity2(K0, delta_K):
-    """
-    This function returns the Capacity in Matrix format for a given initial
-    capacity (K0) and the delta capacity vector (delta_K)
-
-    Args:
-        K0 (int): Initial Capacity
-        delta_K (ndarray): Delta Capacity Vector
-
-    Returns:
-        K (ndarray): Capacity Matrix
-
-    To call this function use the following syntax:
-        Capacity2(K0, delta_K)
-    """
-    # Create a cumulative sum array starting from K0 for each forecast
-    K = K0 + np.cumsum(delta_K, axis=1)
-
-    return K
-
-
 def NPV_Flexible(delta_K, Param, D, condition):
     """
     This function calculates the Net Present Value for the flexible case by calling the
@@ -450,8 +435,8 @@ def NPV_Flexible(delta_K, Param, D, condition):
     # Parameter
     K0 = Param["K0"]  # Initial Capacity
 
-    # Calling the Capacity2 function for the Capacity matrix
-    K_Flex = Capacity2(K0, delta_K)
+    # Calling the Capacity function for the Capacity matrix
+    K_Flex = Capacity(delta_K, Param)
 
     # Calling the NPV calculation function for the NPV vector
     NPV = NPV_calculation(K_Flex, D, delta_K, Param, condition)
